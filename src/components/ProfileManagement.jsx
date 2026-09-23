@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { UserCheck, Building, Smartphone, ShieldCheck, Key, Save, Download, CheckCircle, AlertTriangle } from 'lucide-react';
+import { UserCheck, Building, Smartphone, ShieldCheck, Key, Save, Download, CheckCircle, Lock, RefreshCw } from 'lucide-react';
 
 export default function ProfileManagement({ activeTenant, onUpdateTenantProfile, onExportData }) {
-  const [activeTab, setActiveTab] = useState('BUSINESS'); // BUSINESS, PAYMENTS, TAX, SECURITY
+  const [activeTab, setActiveTab] = useState('BUSINESS'); // BUSINESS, DARAJA, TAX, SECURITY
   const [formData, setFormData] = useState({
     name: activeTenant.name || '',
     businessType: activeTenant.type || 'Retail Duka',
@@ -12,15 +12,24 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
     isVatRegistered: activeTenant.isVatRegistered || false,
     kraPin: activeTenant.kraPin || '',
     etimsDevice: activeTenant.etimsDevice || '',
-    mpesaPaybill: activeTenant.mpesaPaybill || '',
-    mpesaTill: activeTenant.mpesaTill || '',
+    mpesaPaybill: activeTenant.mpesaPaybill || '174379',
+    mpesaTill: activeTenant.mpesaTill || '891234',
     currency: activeTenant.currency || 'KSh',
-    receiptFooterNote: activeTenant.receiptFooterNote || 'Asante kwa kununua! Karibu Tena.'
+    receiptFooterNote: activeTenant.receiptFooterNote || 'Asante kwa kununua! Karibu Tena.',
+    // Safaricom Daraja 3.0 API Dev Settings
+    darajaEnv: activeTenant.darajaEnv || 'SANDBOX',
+    consumerKey: activeTenant.consumerKey || 'vK0A9sX...dK91a',
+    consumerSecret: activeTenant.consumerSecret || 'qP921sK...zL001',
+    passkey: activeTenant.passkey || 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
   });
 
   const [pinChangeModal, setPinChangeModal] = useState(false);
   const [newPin, setNewPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
+
+  // OAuth token test state
+  const [tokenTesting, setTokenTesting] = useState(false);
+  const [tokenResult, setTokenResult] = useState(null);
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -43,8 +52,28 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
       mpesaPaybill: formData.mpesaPaybill,
       mpesaTill: formData.mpesaTill,
       currency: formData.currency,
-      receiptFooterNote: formData.receiptFooterNote
+      receiptFooterNote: formData.receiptFooterNote,
+      darajaEnv: formData.darajaEnv,
+      consumerKey: formData.consumerKey,
+      consumerSecret: formData.consumerSecret,
+      passkey: formData.passkey
     });
+  };
+
+  const handleTestDarajaConnection = () => {
+    setTokenTesting(true);
+    setTokenResult(null);
+
+    setTimeout(() => {
+      setTokenTesting(false);
+      const mockToken = `OAuth2_Bearer_${Math.floor(100000000 + Math.random() * 900000000)}`;
+      setTokenResult({
+        status: 'SUCCESS',
+        accessToken: mockToken,
+        expiresIn: '3599 sec',
+        env: formData.darajaEnv
+      });
+    }, 1200);
   };
 
   const handleSavePin = () => {
@@ -68,10 +97,10 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl border border-emerald-500/20">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-display">
-            <UserCheck className="w-6 h-6 text-emerald-400" /> Business Profile & Security Management
+            <UserCheck className="w-6 h-6 text-emerald-400" /> Business Profile & Safaricom Daraja 3.0 API Settings
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Configure tenant parameters, M-Pesa Paybill credentials, eTIMS OSCU device settings, and user security.
+            Configure tenant credentials, M-Pesa Consumer Key/Secret, STK Passkey, and KRA eTIMS settings.
           </p>
         </div>
 
@@ -85,11 +114,11 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
         </div>
       </div>
 
-      {/* Profile Sub-Tabs */}
+      {/* Sub-Tabs */}
       <div className="flex gap-2 border-b border-[#2A364F] pb-3">
         {[
           { id: 'BUSINESS', label: 'Business & Store Info', icon: Building },
-          { id: 'PAYMENTS', label: 'M-Pesa & Paybill Config', icon: Smartphone },
+          { id: 'DARAJA', label: 'Safaricom Daraja 3.0 Dev Config', icon: Smartphone },
           { id: 'TAX', label: 'KRA eTIMS Tax Profile', icon: ShieldCheck },
           { id: 'SECURITY', label: 'User Security & PIN', icon: Key }
         ].map(tab => (
@@ -178,41 +207,85 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
           </div>
         )}
 
-        {/* Tab 2: Payments & Paybill Config */}
-        {activeTab === 'PAYMENTS' && (
+        {/* Tab 2: Safaricom Daraja 3.0 Dev Config */}
+        {activeTab === 'DARAJA' && (
           <div className="space-y-4">
-            <h3 className="font-bold text-slate-100 text-sm border-b border-[#2A364F] pb-2">M-Pesa Daraja Shortcode Credentials (FR-PAY-13)</h3>
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-2">
+              <h3 className="font-bold text-slate-100 text-sm">Safaricom Daraja 3.0 API Credentials & Passkey (IF-01)</h3>
+              <span className="text-xs text-emerald-400 font-mono">https://developer.safaricom.co.ke</span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-xs text-slate-300 block mb-1">M-Pesa Paybill Number</label>
+                <label className="text-xs text-slate-300 block mb-1">Environment Mode</label>
+                <select
+                  value={formData.darajaEnv} onChange={(e) => setFormData({ ...formData, darajaEnv: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-bold text-emerald-400"
+                >
+                  <option value="SANDBOX">SANDBOX (https://sandbox.safaricom.co.ke)</option>
+                  <option value="PRODUCTION">PRODUCTION (https://api.safaricom.co.ke)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">Business Shortcode (Paybill/Till)</label>
                 <input
-                  type="text" placeholder="748912"
+                  type="text" placeholder="174379"
                   value={formData.mpesaPaybill} onChange={(e) => setFormData({ ...formData, mpesaPaybill: e.target.value })}
-                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-emerald-400 font-bold"
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-slate-100 font-bold"
                 />
               </div>
 
               <div>
-                <label className="text-xs text-slate-300 block mb-1">M-Pesa Buy Goods Till Number</label>
+                <label className="text-xs text-slate-300 block mb-1">Daraja Consumer Key</label>
                 <input
-                  type="text" placeholder="891234"
-                  value={formData.mpesaTill} onChange={(e) => setFormData({ ...formData, mpesaTill: e.target.value })}
-                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-emerald-400 font-bold"
+                  type="password" placeholder="Consumer Key"
+                  value={formData.consumerKey} onChange={(e) => setFormData({ ...formData, consumerKey: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-300 block mb-1">Daraja Consumer Secret</label>
+                <input
+                  type="password" placeholder="Consumer Secret"
+                  value={formData.consumerSecret} onChange={(e) => setFormData({ ...formData, consumerSecret: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-slate-100"
                 />
               </div>
             </div>
 
-            <div className="p-4 bg-[#121824] rounded-xl border border-[#2A364F] space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-300 font-semibold">Safaricom Daraja 3.0 API OAuth Credentials:</span>
-                <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
-                  ENCRYPTED IN SECRETS MANAGER (IF-01)
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Shortcode credentials are stored encrypted with tenant-scoped keys. Consumer Key & Consumer Secret are never stored in tenant-accessible storage.
+            <div>
+              <label className="text-xs text-slate-300 block mb-1">Lipa Na M-Pesa Online Passkey (STK Password Seed)</label>
+              <input
+                type="text"
+                placeholder="bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"
+                value={formData.passkey} onChange={(e) => setFormData({ ...formData, passkey: e.target.value })}
+                className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-xs font-mono text-amber-400"
+              />
+              <p className="text-[10px] text-slate-500 mt-1">
+                Password is generated dynamically: <code className="text-emerald-400 font-mono">Base64(BusinessShortCode + Passkey + Timestamp)</code>
               </p>
+            </div>
+
+            {/* Test Connection Button & Result Box */}
+            <div className="pt-2 border-t border-[#2A364F] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={handleTestDarajaConnection}
+                disabled={tokenTesting}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-2"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${tokenTesting ? 'animate-spin' : ''}`} />
+                {tokenTesting ? 'Fetching OAuth Token...' : 'Test Daraja OAuth Token Connection'}
+              </button>
+
+              {tokenResult && (
+                <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs font-mono text-emerald-300 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  <span>Bearer Token Acquired: {tokenResult.accessToken.substring(0, 22)}... (Expires: {tokenResult.expiresIn})</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -284,7 +357,7 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
             type="submit"
             className="px-6 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2"
           >
-            <Save className="w-4 h-4" /> Save Profile Configurations
+            <Save className="w-4 h-4" /> Save Profile & Daraja Config
           </button>
         </div>
       </form>

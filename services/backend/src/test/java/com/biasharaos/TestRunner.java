@@ -1,6 +1,7 @@
 package com.biasharaos;
 
 import com.biasharaos.domain.inventory.StockLedgerServiceTest;
+import com.biasharaos.domain.payment.MpesaPaymentServiceTest;
 import com.biasharaos.domain.profile.ProfileServiceTest;
 
 public class TestRunner {
@@ -58,6 +59,33 @@ public class TestRunner {
         } catch (Throwable t) {
             failures++;
             System.err.println("[FAIL] ProfileServiceTest: " + t.getMessage());
+        }
+
+        // 4. Run MpesaPaymentServiceTest
+        try {
+            MpesaPaymentServiceTest mpesaSuite = new MpesaPaymentServiceTest();
+            mpesaSuite.testGeneratePassword_Base64Encoding();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testGeneratePassword_Base64Encoding");
+
+            mpesaSuite.testInitiateStkPush_ValidPhone();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testInitiateStkPush_ValidPhone");
+
+            mpesaSuite.testInitiateStkPush_InvalidPhone_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testInitiateStkPush_InvalidPhone_ThrowsException");
+
+            mpesaSuite.testBuildStkQueryPayload();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testBuildStkQueryPayload");
+
+            mpesaSuite.testResolveResultCodeMessage();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testResolveResultCodeMessage");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] MpesaPaymentServiceTest: " + t.getMessage());
         }
 
         System.out.println("-------------------------------------------------------");

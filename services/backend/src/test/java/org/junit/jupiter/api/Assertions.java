@@ -19,9 +19,21 @@ public class Assertions {
         }
     }
 
+    public static void assertNotNull(Object object) {
+        if (object == null) {
+            throw new AssertionError("Expected non-null object");
+        }
+    }
+
     public static void assertTrue(boolean condition) {
         if (!condition) {
             throw new AssertionError("Expected condition to be true");
+        }
+    }
+
+    public static void assertFalse(boolean condition) {
+        if (condition) {
+            throw new AssertionError("Expected condition to be false");
         }
     }
 

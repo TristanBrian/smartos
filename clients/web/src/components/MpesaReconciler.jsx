@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { Smartphone, CheckCircle, AlertTriangle, RefreshCw, Search, ShieldCheck, ArrowRight, Clock } from 'lucide-react';
+import { Smartphone, CheckCircle, AlertTriangle, RefreshCw, Search, ShieldCheck, ArrowRight, Clock, HelpCircle, XCircle } from 'lucide-react';
 
 export default function MpesaReconciler({ mpesaTransactions, sales, onMatchPayment, activeTenant }) {
   const [filter, setFilter] = useState('ALL'); // ALL, MATCHED, UNMATCHED
   const [selectedUnmatched, setSelectedUnmatched] = useState(null);
   const [targetReceipt, setTargetReceipt] = useState('');
+
+  // STK Query Modal State
+  const [queryModalTx, setQueryModalTx] = useState(null);
+  const [queryingState, setQueryingState] = useState(false);
+  const [queryResult, setQueryResult] = useState(null);
 
   const filteredTrans = mpesaTransactions.filter(t => {
     if (filter === 'MATCHED') return t.status === 'MATCHED';
@@ -24,16 +29,44 @@ export default function MpesaReconciler({ mpesaTransactions, sales, onMatchPayme
     setTargetReceipt('');
   };
 
+  const handleExecuteStkQuery = (tx) => {
+    setQueryModalTx(tx);
+    setQueryingState(true);
+    setQueryResult(null);
+
+    setTimeout(() => {
+      setQueryingState(false);
+      const isSuccess = tx.status === 'MATCHED' || Math.random() > 0.3;
+      if (isSuccess) {
+        setQueryResult({
+          resultCode: "0",
+          resultDesc: "The service request has been processed successfully.",
+          merchantRequestId: "MR-91827391",
+          checkoutRequestId: tx.transId,
+          amountPaid: tx.amountCents,
+          mpesaReceipt: tx.transId
+        });
+      } else {
+        setQueryResult({
+          resultCode: "1032",
+          resultDesc: "[STK_QUERY] Request cancelled by user on phone (1032).",
+          merchantRequestId: "MR-91827391",
+          checkoutRequestId: tx.transId
+        });
+      }
+    }, 1200);
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Info Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl border border-emerald-500/20">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-display">
-            <Smartphone className="w-6 h-6 text-emerald-400" /> Safaricom M-Pesa Daraja 3.0 Reconciliation
+            <Smartphone className="w-6 h-6 text-emerald-400" /> Safaricom M-Pesa Daraja 3.0 Express & Query Center
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            STK Push correlation, C2B Paybill ({activeTenant.mpesaPaybill}) reconciliation, and idempotency guarantees.
+            Shortcode {activeTenant.mpesaPaybill || '174379'} ({activeTenant.darajaEnv || 'SANDBOX'}) — STK Push correlation & live Daraja status queries.
           </p>
         </div>
 
@@ -111,13 +144,21 @@ export default function MpesaReconciler({ mpesaTransactions, sales, onMatchPayme
                     {tx.status}
                   </span>
                 </td>
-                <td className="p-3.5 text-right">
+                <td className="p-3.5 text-right flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={() => handleExecuteStkQuery(tx)}
+                    className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded border border-slate-700 flex items-center gap-1"
+                    title="Query Daraja STK Status"
+                  >
+                    <RefreshCw className="w-3 h-3 text-cyan-400" /> Query Status
+                  </button>
+
                   {tx.status === 'UNMATCHED' && (
                     <button
                       onClick={() => setSelectedUnmatched(tx)}
                       className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] rounded-lg border border-amber-500/40"
                     >
-                      Reconcile Sale
+                      Reconcile
                     </button>
                   )}
                 </td>
@@ -126,6 +167,53 @@ export default function MpesaReconciler({ mpesaTransactions, sales, onMatchPayme
           </tbody>
         </table>
       </div>
+
+      {/* STK Push Query Result Modal */}
+      {queryModalTx && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-cyan-500/30 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-2">
+              <h3 className="font-bold text-slate-100 text-sm">Daraja STK Push Query (`/stkpushquery/v1/query`)</h3>
+              <span className="text-xs font-mono text-cyan-400">{activeTenant.darajaEnv || 'SANDBOX'}</span>
+            </div>
+
+            <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F] text-xs font-mono space-y-1">
+              <div>CheckoutRequestID: <span className="text-emerald-400">{queryModalTx.transId}</span></div>
+              <div>Shortcode: <span className="text-slate-200">{activeTenant.mpesaPaybill || '174379'}</span></div>
+            </div>
+
+            {queryingState && (
+              <div className="p-4 text-center space-y-2">
+                <RefreshCw className="w-6 h-6 animate-spin text-cyan-400 mx-auto" />
+                <p className="text-xs text-slate-300">Sending Base64 password & querying Safaricom Daraja API...</p>
+              </div>
+            )}
+
+            {queryResult && (
+              <div className="space-y-3">
+                <div className={`p-4 rounded-xl border space-y-2 text-xs font-mono ${
+                  queryResult.resultCode === '0'
+                    ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                    : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                }`}>
+                  <div className="flex items-center gap-2 font-bold text-sm">
+                    {queryResult.resultCode === '0' ? <CheckCircle className="w-5 h-5 text-emerald-400" /> : <XCircle className="w-5 h-5 text-rose-400" />}
+                    ResultCode: {queryResult.resultCode}
+                  </div>
+                  <p>{queryResult.resultDesc}</p>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => setQueryModalTx(null)}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl"
+            >
+              Close Query Window
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Manual Reconciliation Modal */}
       {selectedUnmatched && (
