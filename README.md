@@ -42,6 +42,12 @@ It consolidates four core operational primitives into one system of record:
 
 ---
 
+## 📖 Operational Runbook
+
+For production ops, disaster recovery, M-Pesa Daraja status queries, eTIMS retries, and database backups, see the **[Operational Runbook](file:///home/tristan/Documents/Repos/biz/docs/runbooks/OPERATIONAL_RUNBOOK.md)**.
+
+---
+
 ## 🐳 Running BiasharaOS with Docker Compose
 
 ### Step-by-Step Launch Instructions
@@ -147,6 +153,9 @@ BUILD SUCCESS
 
 ```
 biashara-os/
+├── docs/
+│   └── runbooks/
+│       └── OPERATIONAL_RUNBOOK.md    # Production & On-Call Runbook
 ├── services/
 │   └── backend/                     # Java 21 / Spring Boot 3 Backend Microservices
 │       ├── src/main/java/           # Domain Services (StockLedger, Sales, Mpesa, Etims, Profile, TenantRouting)
