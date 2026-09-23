@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  biashara-postgres:
+    image: postgres:16-alpine
+    container_name: biashara-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: biasharaos_db
+      POSTGRES_USER: biashara_admin
+      POSTGRES_PASSWORD: biashara_secure_pass_2026
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biashara_admin -d biasharaos_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  biashara-redis:
+    image: redis:7-alpine
+    container_name: biashara-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  biashara-zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: biashara-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  biashara-kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: biashara-kafka
+    depends_on:
+      - biashara-zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: biashara-zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://biashara-kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  biashara-backend:
+    build:
+      context: ./services/backend
+      dockerfile: Dockerfile
+    container_name: biashara-backend
+    restart: always
+    depends_on:
+      biashara-postgres:
+        condition: service_healthy
+      biashara-redis:
+        condition: service_started
+      biashara-kafka:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://biashara-postgres:5432/biasharaos_db
+      SPRING_DATASOURCE_USERNAME: biashara_admin
+      SPRING_DATASOURCE_PASSWORD: biashara_secure_pass_2026
+      SPRING_REDIS_HOST: biashara-redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: biashara-kafka:29092
+
+  biashara-web:
+    build:
+      context: ./clients/web
+      dockerfile: Dockerfile
+    container_name: biashara-web
+    restart: always
+    depends_on:
+      - biashara-backend
+    ports:
+      - "3000:80"
+
+volumes:
+  postgres_data:
+  redis_data:

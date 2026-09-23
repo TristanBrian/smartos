@@ -1,0 +1,3 @@
+#!/bin/sh
+# Simple Maven Wrapper delegating to mvn
+exec mvn "$@"
