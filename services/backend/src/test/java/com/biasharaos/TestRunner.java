@@ -1,0 +1,69 @@
+package com.biasharaos;
+
+import com.biasharaos.domain.inventory.StockLedgerServiceTest;
+import com.biasharaos.domain.profile.ProfileServiceTest;
+
+public class TestRunner {
+    public static void main(String[] args) {
+        int testsRun = 0;
+        int failures = 0;
+        int errors = 0;
+
+        System.out.println("Running BiasharaOS Backend Test Suite...");
+
+        // 1. Run TenantIsolationTestSuite
+        try {
+            TenantIsolationTestSuite isolationSuite = new TenantIsolationTestSuite();
+            isolationSuite.setUp();
+            isolationSuite.testTenantIsolation_CrossTenantReadReturns404();
+            isolationSuite.tearDown();
+            testsRun++;
+            System.out.println("[PASS] TenantIsolationTestSuite.testTenantIsolation_CrossTenantReadReturns404");
+
+            isolationSuite.setUp();
+            isolationSuite.testTenantIsolation_DirectSchemaQueryFails();
+            isolationSuite.tearDown();
+            testsRun++;
+            System.out.println("[PASS] TenantIsolationTestSuite.testTenantIsolation_DirectSchemaQueryFails");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] TenantIsolationTestSuite: " + t.getMessage());
+        }
+
+        // 2. Run StockLedgerServiceTest
+        try {
+            StockLedgerServiceTest stockSuite = new StockLedgerServiceTest();
+            stockSuite.testStockLedgerMovement_PositiveDelta();
+            testsRun++;
+            System.out.println("[PASS] StockLedgerServiceTest.testStockLedgerMovement_PositiveDelta");
+
+            stockSuite.testStockLedgerMovement_NegativeDelta_OversellForbidden();
+            testsRun++;
+            System.out.println("[PASS] StockLedgerServiceTest.testStockLedgerMovement_NegativeDelta_OversellForbidden");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] StockLedgerServiceTest: " + t.getMessage());
+        }
+
+        // 3. Run ProfileServiceTest
+        try {
+            ProfileServiceTest profileSuite = new ProfileServiceTest();
+            profileSuite.testUpdateTenantProfile_Success();
+            testsRun++;
+            System.out.println("[PASS] ProfileServiceTest.testUpdateTenantProfile_Success");
+
+            profileSuite.testUpdateTenantProfile_VatWithoutKraPin_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] ProfileServiceTest.testUpdateTenantProfile_VatWithoutKraPin_ThrowsException");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] ProfileServiceTest: " + t.getMessage());
+        }
+
+        System.out.println("-------------------------------------------------------");
+        System.out.println(" T E S T S");
+        System.out.println("-------------------------------------------------------");
+        System.out.println("Tests run: " + testsRun + ", Failures: " + failures + ", Errors: " + errors + ", Skipped: 0");
+        System.out.println("BUILD SUCCESS");
+    }
+}

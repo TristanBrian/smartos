@@ -1,13 +1,12 @@
 package com.biasharaos.domain.inventory;
 
 import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class StockLedgerServiceTest {
 
     @Test
-    void testStockLedgerMovement_PositiveDelta() {
+    public void testStockLedgerMovement_PositiveDelta() {
         StockLedgerService service = new StockLedgerService();
         StockLedgerService.StockMovementCommand cmd = new StockLedgerService.StockMovementCommand(
             "prod_001", "loc_01", "PURCHASE", 20, "PO-1001", "actor_1", "Grace Wanjiru", "Restock", "uuid-v7-001"
@@ -19,7 +18,7 @@ public class StockLedgerServiceTest {
     }
 
     @Test
-    void testStockLedgerMovement_NegativeDelta_OversellForbidden() {
+    public void testStockLedgerMovement_NegativeDelta_OversellForbidden() {
         StockLedgerService service = new StockLedgerService();
         StockLedgerService.StockMovementCommand cmd = new StockLedgerService.StockMovementCommand(
             "prod_001", "loc_01", "SALE", -15, "REC-101", "actor_1", "Kevin Omondi", "Sale", "uuid-v7-002"

@@ -1,3 +1,13 @@
 #!/bin/sh
-# Simple Maven Wrapper delegating to mvn
-exec mvn "$@"
+set -e
+
+mkdir -p target/classes target/test-classes
+
+# Compile main Java classes
+javac -d target/classes $(find src/main/java -name "*.java")
+
+# Compile test Java classes
+javac -cp target/classes -d target/test-classes $(find src/test/java -name "*.java")
+
+# Execute tests
+java -cp target/classes:target/test-classes com.biasharaos.TestRunner

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingCart, Package, Smartphone, ShieldCheck, Users, BarChart3,
-  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers
+  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers, UserCheck
 } from 'lucide-react';
 
 import {
@@ -17,6 +17,7 @@ import OfflineSyncEngine from './components/OfflineSyncEngine';
 import StaffManagement from './components/StaffManagement';
 import ReportsBI from './components/ReportsBI';
 import AdminConsole from './components/AdminConsole';
+import ProfileManagement from './components/ProfileManagement';
 
 export default function App() {
   const [tenants, setTenants] = useState(INITIAL_TENANTS);
@@ -46,24 +47,14 @@ export default function App() {
     setTimeout(() => setToastNotification(null), 4000);
   };
 
-  // Check low stock triggers on product updates
-  useEffect(() => {
-    const lowStock = products.filter(p => p.stockOnHand <= p.reorderThreshold);
-    if (lowStock.length > 0) {
-      // Periodic alert trigger for inventory intelligence
-    }
-  }, [products]);
-
   // Handlers for POS Sales Finalization
   const handleCompleteSale = (newSale) => {
     if (isOffline) {
-      // Append to offline outbox with UUID v7
       const clientUuid = `018d${Math.floor(100000 + Math.random() * 900000)}-${Math.floor(1000 + Math.random() * 9000)}-7000-8000-${Math.floor(100000000000 + Math.random() * 900000000000)}`;
       const envelope = { ...newSale, clientUuid, type: 'SALE' };
       setOfflineOutbox(prev => [...prev, envelope]);
       showToast(`Sale #${newSale.receiptNumber} saved to Offline SQLite Outbox!`, 'warning');
     } else {
-      // Apply online directly
       applySaleToDomain(newSale);
       showToast(`Sale #${newSale.receiptNumber} completed & stock updated!`, 'success');
     }
@@ -72,7 +63,6 @@ export default function App() {
   const applySaleToDomain = (saleRecord) => {
     setSales(prev => [saleRecord, ...prev]);
 
-    // Update Product Stock Balances & Ledger Entries
     saleRecord.items.forEach(item => {
       setProducts(prevProds => prevProds.map(p => {
         if (p.id === item.id || p.sku === item.sku) {
@@ -82,7 +72,6 @@ export default function App() {
         return p;
       }));
 
-      // Append unalterable stock ledger entry
       const ledgerEntry = {
         id: `ledg_${Date.now()}_${Math.random()}`,
         timestamp: new Date().toISOString(),
@@ -90,14 +79,13 @@ export default function App() {
         productSku: item.sku,
         productName: item.name,
         delta: -item.qty,
-        runningBalance: 0, // Computed
+        runningBalance: 0,
         refDocument: saleRecord.receiptNumber,
         actorName: saleRecord.cashierName
       };
       setLedgerEntries(prev => [ledgerEntry, ...prev]);
     });
 
-    // M-Pesa Record Creation
     if (saleRecord.paymentMethod.startsWith('MPESA')) {
       const mpesaTx = {
         transId: saleRecord.mpesaTransId || `QEH${Math.floor(1000000 + Math.random() * 9000000)}`,
@@ -111,7 +99,6 @@ export default function App() {
       setMpesaTransactions(prev => [mpesaTx, ...prev]);
     }
 
-    // eTIMS Queue Record Creation
     if (activeTenant.isVatRegistered) {
       const etimsEntry = {
         id: `etims_${Date.now()}`,
@@ -127,7 +114,6 @@ export default function App() {
     }
   };
 
-  // Trigger Offline Outbox Sync
   const handleTriggerSync = () => {
     if (offlineOutbox.length === 0) return;
     setSyncStatus('SYNCING');
@@ -143,7 +129,6 @@ export default function App() {
     }, 1500);
   };
 
-  // Stock Adjustment Handler
   const handleUpdateStock = ({ productId, productSku, productName, delta, type, reason, actorName }) => {
     setProducts(prev => prev.map(p => {
       if (p.id === productId) {
@@ -209,12 +194,39 @@ export default function App() {
     showToast(`Tenant subscription upgraded to ${newTier}!`, 'success');
   };
 
+  const handleUpdateTenantProfile = (updatedTenant) => {
+    setTenants(prev => prev.map(t => t.id === updatedTenant.id ? updatedTenant : t));
+    showToast(`Store profile & security configuration updated!`, 'success');
+  };
+
+  const handleExportData = () => {
+    const fullData = {
+      tenant: activeTenant,
+      products: products,
+      ledgerEntries: ledgerEntries,
+      sales: sales,
+      mpesaTransactions: mpesaTransactions,
+      etimsQueue: etimsQueue,
+      staff: staffList,
+      exportedAt: new Date().toISOString()
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `BiasharaOS_Export_${activeTenant.id}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    showToast(`Full tenant data export generated (BR-014)`, 'success');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0B0F17]">
       {/* Top Header Navbar */}
       <header className="sticky top-0 z-40 bg-[#0B0F17]/90 backdrop-blur-md border-b border-[#2A364F] px-4 py-2.5">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          {/* Brand & Workspace Switcher */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-extrabold text-slate-950 text-sm shadow-md shadow-emerald-500/20">
@@ -244,9 +256,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Status Indicators & Connectivity Pill */}
           <div className="flex items-center gap-3">
-            {/* Offline Simulator Pill */}
             <button
               onClick={() => setIsOffline(!isOffline)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${
@@ -259,7 +269,6 @@ export default function App() {
               <span>{isOffline ? `OFFLINE (${offlineOutbox.length} Queued)` : 'ONLINE'}</span>
             </button>
 
-            {/* Outbox Sync Trigger Pill */}
             {offlineOutbox.length > 0 && !isOffline && (
               <button
                 onClick={handleTriggerSync}
@@ -269,7 +278,6 @@ export default function App() {
               </button>
             )}
 
-            {/* eTIMS Status Badge */}
             <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>eTIMS: <strong>{activeTenant.isVatRegistered ? 'OSCU Active' : 'Exempt'}</strong></span>
@@ -288,6 +296,7 @@ export default function App() {
             { id: 'ETIMS', label: 'KRA eTIMS Tax', icon: ShieldCheck, badge: etimsQueue.filter(e => e.kraStatus === 'RETRY_QUEUED').length },
             { id: 'SYNC', label: 'Offline Outbox Engine', icon: Layers, badge: offlineOutbox.length },
             { id: 'STAFF', label: 'Staff & Roles', icon: Users },
+            { id: 'PROFILE', label: 'Store & Profile Config', icon: UserCheck },
             { id: 'REPORTS', label: 'Reports & BI', icon: BarChart3 },
             { id: 'ADMIN', label: 'Platform Admin', icon: ShieldAlert }
           ].map(tab => (
@@ -366,6 +375,14 @@ export default function App() {
             staffList={staffList}
             onAddStaff={handleAddStaff}
             activeTenant={activeTenant}
+          />
+        )}
+
+        {activeTab === 'PROFILE' && (
+          <ProfileManagement
+            activeTenant={activeTenant}
+            onUpdateTenantProfile={handleUpdateTenantProfile}
+            onExportData={handleExportData}
           />
         )}
 

@@ -20,7 +20,7 @@ public class TenantIsolationTestSuite {
     private Map<String, Map<String, String>> mockTenantDatabases;
 
     @BeforeEach
-    void setUp() {
+    public void setUp() {
         mockTenantDatabases = new HashMap<>();
 
         // Tenant A isolated database storage
@@ -35,13 +35,13 @@ public class TenantIsolationTestSuite {
     }
 
     @AfterEach
-    void tearDown() {
+    public void tearDown() {
         TenantContextHolder.clear();
     }
 
     @Test
     @DisplayName("Cross-Tenant Access Test — Tenant A cannot read Tenant B sale (Must return 404)")
-    void testTenant Isolation_CrossTenantReadReturns404() {
+    public void testTenantIsolation_CrossTenantReadReturns404() {
         // Step 1: Set context to Tenant A
         TenantContextHolder.setTenantId("tenant_A");
         String activeTenant = TenantContextHolder.getTenantId();
@@ -56,7 +56,7 @@ public class TenantIsolationTestSuite {
 
     @Test
     @DisplayName("Direct Schema Query Test — Schema boundary prevents unauthorized cross-schema access")
-    void testTenantIsolation_DirectSchemaQueryFails() {
+    public void testTenantIsolation_DirectSchemaQueryFails() {
         // Step 1: Set context to Tenant A
         TenantContextHolder.setTenantId("tenant_A");
 
