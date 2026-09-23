@@ -3,6 +3,7 @@ package com.biasharaos;
 import com.biasharaos.domain.inventory.StockLedgerServiceTest;
 import com.biasharaos.domain.payment.MpesaPaymentServiceTest;
 import com.biasharaos.domain.profile.ProfileServiceTest;
+import com.biasharaos.domain.sales.SalesServiceTest;
 
 public class TestRunner {
     public static void main(String[] args) {
@@ -86,6 +87,29 @@ public class TestRunner {
         } catch (Throwable t) {
             failures++;
             System.err.println("[FAIL] MpesaPaymentServiceTest: " + t.getMessage());
+        }
+
+        // 5. Run SalesServiceTest
+        try {
+            SalesServiceTest salesSuite = new SalesServiceTest();
+            salesSuite.testProcessSale_UnderDiscountCap_Success();
+            testsRun++;
+            System.out.println("[PASS] SalesServiceTest.testProcessSale_UnderDiscountCap_Success");
+
+            salesSuite.testProcessSale_ExceedsDiscountCapWithoutApproval_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] SalesServiceTest.testProcessSale_ExceedsDiscountCapWithoutApproval_ThrowsException");
+
+            salesSuite.testProcessSale_CumulativeDiscountBypassLoophole_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] SalesServiceTest.testProcessSale_CumulativeDiscountBypassLoophole_ThrowsException");
+
+            salesSuite.testProcessSale_CumulativeDiscountWithManagerApproval_Success();
+            testsRun++;
+            System.out.println("[PASS] SalesServiceTest.testProcessSale_CumulativeDiscountWithManagerApproval_Success");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] SalesServiceTest: " + t.getMessage());
         }
 
         System.out.println("-------------------------------------------------------");
