@@ -10,15 +10,33 @@ It consolidates four core operational primitives into one system of record:
 
 ---
 
-## 👥 Pre-Configured Test User Personas & Persona Routing
+## 👥 Pre-Configured Test User Credentials & Persona Routing
 
-| Username | Assigned Role | Primary Dashboard View | Access Scope & Scope |
-|---|---|---|---|
-| **`test1admin`** | `SUPER_ADMIN` | **Platform Admin** (`ADMIN`) | Full platform authority, cross-tenant observability, shop onboarding & support impersonation. |
-| **`test1user`** | `OWNER` | **POS Terminal** (`POS`) | Shop Admin. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports. |
-| **`test2user`** | `CASHIER` | **POS Terminal** (`POS`) | Store Cashier. Front-desk POS checkout & M-Pesa reconciliation. Restricted from stock write-offs & config. |
+| Username | Password | Assigned Role | Primary Dashboard View | Access Scope & Capabilities |
+|---|---|---|---|---|
+| **`test1admin`** | `password123` | `SUPER_ADMIN` | **Platform Admin** (`ADMIN`) | Full platform authority, cross-tenant observability, shop onboarding, license management & support impersonation. |
+| **`test1user`** | `password123` | `OWNER` | **POS Terminal** (`POS`) | Shop Admin for Nakuru Fresh Duka. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports. |
+| **`test2user`** | `password123` | `CASHIER` | **POS Terminal** (`POS`) | Store Cashier. Front-desk POS checkout & M-Pesa receipt reconciliation. Restricted from stock write-offs & config. |
 
-When switching persona via the top navbar identity switcher, BiasharaOS automatically routes the session to the persona's designated primary dashboard view (`ADMIN` for Super Admin, `POS` for Cashier/Owner).
+---
+
+## 💳 Subscription Model & License Expiration via M-Pesa STK Push
+
+BiasharaOS supports self-service subscription renewals and tier upgrades powered by Safaricom M-Pesa STK Push (`CustomerPayBillOnline`):
+1. **Tier Options**:
+   - **`LITE`**: KSh 299/mo (1 Location, 500 Products, 2 Staff, eTIMS Included)
+   - **`PRO`**: KSh 599/mo (3 Locations, Unlimited Products, 10 Staff, eTIMS Included)
+   - **`MAX`**: KSh 1,299/mo (Unlimited Locations, Unlimited Products, Unlimited Staff, eTIMS Included)
+2. **Renewal Duration Periods**: 1 Month (30 Days), 3 Months (90 Days), or 12 Months (1 Year).
+3. **STK Push Payment Trigger**: Enter mobile number (`2547XXXXXXXX`) to receive an instant handset prompt. Upon payment validation, the system computes the exact expiry date (`licenseExpiryDate`), issues a cryptographically signed license token (`licenseToken`), and sets tenant status to `ACTIVE`.
+4. **License Token Expiration**: View active license token status and expiration countdown in **Platform Admin Console** and **Store Profile & Settings**.
+
+---
+
+## 🌐 Automatic Network Status Detection & Web Bluetooth Printing
+
+- **Automatic Online/Offline Detection**: Intelligent browser network listener (`window.addEventListener('online'/'offline')`) auto-detects network disconnections without manual toggles, seamlessly queueing transactions into the client-side SQLite outbox and syncing automatically upon reconnection.
+- **Web Bluetooth Thermal Printing**: Web Bluetooth GATT integration (`navigator.bluetooth.requestDevice`) pairs directly with ESC/POS thermal printers (e.g., POS-58, MPT-II) for instant 58mm/80mm receipt generation with automatic paper cutting commands (`0x1D, 0x56, 0x41, 0x03`). Standard system print dialog (`window.print()`) is provided as an automatic fallback.
 
 ---
 

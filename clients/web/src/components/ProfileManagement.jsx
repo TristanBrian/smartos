@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { UserCheck, Building, Smartphone, ShieldCheck, Key, Save, Download, CheckCircle, Lock, RefreshCw } from 'lucide-react';
+import { UserCheck, Building, Smartphone, ShieldCheck, Key, Save, Download, CheckCircle, Lock, RefreshCw, CreditCard } from 'lucide-react';
+import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
 export default function ProfileManagement({ activeTenant, onUpdateTenantProfile, onExportData }) {
-  const [activeTab, setActiveTab] = useState('BUSINESS'); // BUSINESS, DARAJA, TAX, SECURITY
+  const [activeTab, setActiveTab] = useState('BUSINESS'); // BUSINESS, DARAJA, TAX, SECURITY, SUBSCRIPTION
+  const [renewMonths, setRenewMonths] = useState(3);
+  const [renewPhone, setRenewPhone] = useState(activeTenant.phone || '+254 722 123 456');
+  const [stkState, setStkState] = useState('IDLE');
+
   const [formData, setFormData] = useState({
     name: activeTenant.name || '',
     businessType: activeTenant.type || 'Retail Duka',
@@ -30,6 +35,27 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
   // OAuth token test state
   const [tokenTesting, setTokenTesting] = useState(false);
   const [tokenResult, setTokenResult] = useState(null);
+
+  const handleTriggerStkRenewal = (e) => {
+    e.preventDefault();
+    setStkState('PUSHING');
+    setTimeout(() => {
+      setStkState('SUCCESS');
+      const today = new Date();
+      const expiry = new Date(today.setMonth(today.getMonth() + Number(renewMonths))).toISOString().split('T')[0];
+      const newToken = `LIC-${activeTenant.tier || 'LITE'}-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${expiry}`;
+
+      onUpdateTenantProfile({
+        ...activeTenant,
+        licenseExpiryDate: expiry,
+        licenseToken: newToken,
+        subscriptionPeriodMonths: renewMonths,
+        status: 'ACTIVE'
+      });
+
+      setTimeout(() => setStkState('IDLE'), 2000);
+    }, 1500);
+  };
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -115,12 +141,13 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
       </div>
 
       {/* Sub-Tabs */}
-      <div className="flex gap-2 border-b border-[#2A364F] pb-3">
+      <div className="flex flex-wrap gap-2 border-b border-[#2A364F] pb-3">
         {[
           { id: 'BUSINESS', label: 'Business & Store Info', icon: Building },
           { id: 'DARAJA', label: 'Safaricom Daraja 3.0 Dev Config', icon: Smartphone },
           { id: 'TAX', label: 'KRA eTIMS Tax Profile', icon: ShieldCheck },
-          { id: 'SECURITY', label: 'User Security & PIN', icon: Key }
+          { id: 'SECURITY', label: 'User Security & PIN', icon: Key },
+          { id: 'SUBSCRIPTION', label: 'Subscription & License Renewal', icon: CreditCard }
         ].map(tab => (
           <button
             key={tab.id}
@@ -348,6 +375,124 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
               >
                 Reset PIN
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 5: Subscription & STK Push License Renewal */}
+        {activeTab === 'SUBSCRIPTION' && (
+          <div className="space-y-4 text-xs">
+            <h3 className="font-bold text-slate-100 text-sm border-b border-[#2A364F] pb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-emerald-400" /> Active License & M-Pesa Renewal
+              </span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-1 rounded-full font-bold border border-emerald-500/30">
+                {activeTenant.status || 'ACTIVE'}
+              </span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 bg-[#121824] rounded-2xl border border-[#2A364F] space-y-1">
+                <span className="text-[11px] text-slate-400 font-semibold block">Current Subscription Tier</span>
+                <div className="text-base font-extrabold text-emerald-400 font-display">
+                  {SUBSCRIPTION_TIERS[activeTenant.tier || 'LITE']?.name || 'Biashara Lite'}
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  KSh {SUBSCRIPTION_TIERS[activeTenant.tier || 'LITE']?.priceMonthlyKSh}/month
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#121824] rounded-2xl border border-[#2A364F] space-y-1">
+                <span className="text-[11px] text-slate-400 font-semibold block">License Token Expiration</span>
+                <div className="text-base font-extrabold text-slate-100 font-mono">
+                  {activeTenant.licenseExpiryDate || '2026-12-24'}
+                </div>
+                <div className="text-[11px] text-emerald-400 font-semibold">
+                  Valid Active License Token
+                </div>
+              </div>
+
+              <div className="p-4 bg-[#121824] rounded-2xl border border-[#2A364F] space-y-1">
+                <span className="text-[11px] text-slate-400 font-semibold block">Signed Token Key</span>
+                <div className="text-xs font-mono text-slate-300 truncate">
+                  {activeTenant.licenseToken || 'LIC-LITE-9812A-2026-12-24'}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  Schema: {activeTenant.schemaName || 'tenant_duka'}
+                </div>
+              </div>
+            </div>
+
+            {/* M-Pesa STK Push Renewal Form */}
+            <div className="p-5 bg-emerald-500/5 rounded-2xl border border-emerald-500/20 space-y-4">
+              <h4 className="font-bold text-slate-100 text-sm flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-emerald-400" /> Renew License via Safaricom M-Pesa STK Push
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Select Renewal Duration Period</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { months: 1, label: '1 Month' },
+                      { months: 3, label: '3 Months' },
+                      { months: 12, label: '12 Months' }
+                    ].map(opt => (
+                      <button
+                        key={opt.months}
+                        type="button"
+                        onClick={() => setRenewMonths(opt.months)}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          renewMonths === opt.months
+                            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500 font-bold'
+                            : 'bg-[#121824] text-slate-400 border-[#2A364F]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">M-Pesa Mobile Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={renewPhone}
+                    onChange={(e) => setRenewPhone(e.target.value)}
+                    placeholder="+254 722 000 111"
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                <div className="text-xs text-slate-300">
+                  Total Payable Amount: <strong className="text-emerald-400 font-display text-base">KSh {((SUBSCRIPTION_TIERS[activeTenant.tier || 'LITE']?.priceMonthlyKSh || 299) * renewMonths).toLocaleString()}</strong>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTriggerStkRenewal}
+                  disabled={stkState === 'PUSHING'}
+                  className="px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {stkState === 'PUSHING' ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" /> Pushing STK to Handset...
+                    </>
+                  ) : stkState === 'SUCCESS' ? (
+                    <>
+                      <CheckCircle className="w-4 h-4 text-slate-950" /> License Renewed!
+                    </>
+                  ) : (
+                    <>
+                      <Smartphone className="w-4 h-4" /> Trigger M-Pesa STK Push
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

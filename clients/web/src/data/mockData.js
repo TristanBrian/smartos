@@ -17,7 +17,11 @@ export const INITIAL_TENANTS = [
     allowOversell: false,
     reorderSmsEnabled: true,
     createdDate: "2026-01-15",
-    currency: "KSh"
+    currency: "KSh",
+    status: "ACTIVE",
+    subscriptionPeriodMonths: 3,
+    licenseExpiryDate: "2026-12-24",
+    licenseToken: "LIC-LITE-9812A-2026-12-24"
   },
   {
     id: "t_pharmacy_nrb",
@@ -35,7 +39,11 @@ export const INITIAL_TENANTS = [
     allowOversell: false,
     reorderSmsEnabled: true,
     createdDate: "2026-02-01",
-    currency: "KSh"
+    currency: "KSh",
+    status: "ACTIVE",
+    subscriptionPeriodMonths: 12,
+    licenseExpiryDate: "2027-09-24",
+    licenseToken: "LIC-MAX-4412B-2027-09-24"
   }
 ];
 

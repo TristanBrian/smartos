@@ -20,6 +20,43 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
   const [newPaybill, setNewPaybill] = useState('');
   const [onboardError, setOnboardError] = useState('');
 
+  // STK Push Subscription Renewal State
+  const [stkModal, setStkModal] = useState(false);
+  const [selectedTierForRenew, setSelectedTierForRenew] = useState('LITE');
+  const [renewalMonths, setRenewalMonths] = useState(3); // 1, 3, 12
+  const [stkPhone, setStkPhone] = useState('+254 722 000 111');
+  const [stkStatus, setStkStatus] = useState('IDLE'); // IDLE, PUSHING, SUCCESS
+
+  const handleExecuteImpersonation = () => {
+    if (!consentApproved || !selectedTargetTenant) return;
+    onSwitchTenant(selectedTargetTenant.id);
+    setImpersonateModal(false);
+    setConsentApproved(false);
+  };
+
+  const handleOpenStkRenewal = (tierKey) => {
+    setSelectedTierForRenew(tierKey);
+    setStkPhone(activeTenant.phone || '+254 722 000 111');
+    setStkStatus('IDLE');
+    setStkModal(true);
+  };
+
+  const handleTriggerStkPushRenewal = (e) => {
+    e.preventDefault();
+    setStkStatus('PUSHING');
+
+    setTimeout(() => {
+      setStkStatus('SUCCESS');
+      setTimeout(() => {
+        if (onUpdateTenantTier) {
+          onUpdateTenantTier(selectedTierForRenew, renewalMonths, stkPhone);
+        }
+        setStkModal(false);
+        setStkStatus('IDLE');
+      }, 1200);
+    }, 1500);
+  };
+
   const handleExecuteImpersonation = () => {
     if (!consentApproved || !selectedTargetTenant) return;
     onSwitchTenant(selectedTargetTenant.id);
@@ -128,6 +165,9 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       {t.tier}
                     </span>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                      Exp: <span className="text-emerald-400 font-mono">{t.licenseExpiryDate || '2026-12-31'}</span>
+                    </div>
                   </td>
                   <td className="p-3 text-right font-bold text-emerald-400">
                     KSh {SUBSCRIPTION_TIERS[t.tier]?.priceMonthlyKSh || 0}/mo
@@ -157,7 +197,11 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
 
       {/* Subscription Tier Change Selector */}
       <div className="glass-panel p-5 rounded-2xl border border-[#2A364F] space-y-3">
-        <h3 className="font-bold text-slate-100 text-sm">Active Workspace Tier Management ({activeTenant.name})</h3>
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-slate-100 text-sm">Active Workspace Tier & License Renewal ({activeTenant.name})</h3>
+          <span className="text-xs text-slate-400 font-mono">License Token: <strong className="text-emerald-400">{activeTenant.licenseToken || 'LIC-LITE-ACTIVE'}</strong></span>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
           {Object.entries(SUBSCRIPTION_TIERS).map(([tierKey, tierInfo]) => (
             <div
@@ -184,14 +228,12 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                 </div>
               </div>
 
-              {activeTenant.tier !== tierKey && (
-                <button
-                  onClick={() => onUpdateTenantTier(tierKey)}
-                  className="w-full mt-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700"
-                >
-                  Switch Tier
-                </button>
-              )}
+              <button
+                onClick={() => handleOpenStkRenewal(tierKey)}
+                className="w-full mt-4 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-extrabold rounded-lg border border-emerald-500/30 flex items-center justify-center gap-1.5 transition-all"
+              >
+                <CreditCard className="w-3.5 h-3.5" /> Renew STK Push
+              </button>
             </div>
           ))}
         </div>
@@ -409,6 +451,98 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                 Switch Workspace Context
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* M-Pesa STK Push Renewal & License Expiration Modal */}
+      {stkModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <CreditCard className="w-5 h-5 text-emerald-400" /> Safaricom M-Pesa STK Push Renewal
+              </h3>
+              <button
+                onClick={() => setStkModal(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleTriggerStkPushRenewal} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Target Subscription Tier</label>
+                <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F] text-slate-100 font-bold flex justify-between items-center">
+                  <span>{SUBSCRIPTION_TIERS[selectedTierForRenew]?.name}</span>
+                  <span className="text-emerald-400 font-display">KSh {SUBSCRIPTION_TIERS[selectedTierForRenew]?.priceMonthlyKSh}/mo</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Renewal Duration Period</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { months: 1, label: '1 Month' },
+                    { months: 3, label: '3 Months' },
+                    { months: 12, label: '12 Months' }
+                  ].map(opt => (
+                    <button
+                      key={opt.months}
+                      type="button"
+                      onClick={() => setRenewalMonths(opt.months)}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        renewalMonths === opt.months
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500 font-bold'
+                          : 'bg-[#121824] text-slate-400 border-[#2A364F]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex justify-between items-center">
+                <span className="text-slate-300 font-semibold">Total Payable Amount:</span>
+                <span className="text-base font-extrabold text-emerald-400 font-display">
+                  KSh {((SUBSCRIPTION_TIERS[selectedTierForRenew]?.priceMonthlyKSh || 0) * renewalMonths).toLocaleString()}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">M-Pesa Express Phone Number *</label>
+                <input
+                  type="text"
+                  required
+                  value={stkPhone}
+                  onChange={(e) => setStkPhone(e.target.value)}
+                  placeholder="+254 722 000 111"
+                  className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {stkStatus === 'PUSHING' && (
+                <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs text-center font-medium animate-pulse flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Prompting {stkPhone}... Check M-Pesa handset prompt!
+                </div>
+              )}
+
+              {stkStatus === 'SUCCESS' && (
+                <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs text-center font-medium flex items-center justify-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400" /> STK Payment Received! License token updated.
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={stkStatus === 'PUSHING' || stkStatus === 'SUCCESS'}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              >
+                Trigger M-Pesa STK Push Renewal <CreditCard className="w-4 h-4" />
+              </button>
+            </form>
           </div>
         </div>
       )}

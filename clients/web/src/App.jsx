@@ -30,8 +30,8 @@ export default function App() {
   // RBAC Session & Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [loginUsername, setLoginUsername] = useState('test1user');
-  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [forbidden403Modal, setForbidden403Modal] = useState(null);
 
@@ -44,8 +44,8 @@ export default function App() {
   const [etimsQueue, setEtimsQueue] = useState(INITIAL_ETIMS_QUEUE);
   const [staffList, setStaffList] = useState(INITIAL_STAFF);
 
-  // Network & Sync States
-  const [isOffline, setIsOffline] = useState(false);
+  // Network & Sync States - Auto-Detected via navigator.onLine & Network Events
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   const [offlineOutbox, setOfflineOutbox] = useState([]);
   const [syncStatus, setSyncStatus] = useState('IDLE');
 
@@ -56,6 +56,26 @@ export default function App() {
     setToastNotification({ message, type });
     setTimeout(() => setToastNotification(null), 4000);
   };
+
+  // Automatic Network Online/Offline Listener (Auto-Detection)
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      showToast('Network connection detected! Workspace is ONLINE.', 'success');
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      showToast('Network lost! Workspace switched to AUTO-OFFLINE SQLite Outbox.', 'warning');
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Authentication & Dynamic Persona Dashboard Routing
   const handlePerformLogin = (specificUser) => {
@@ -267,14 +287,27 @@ export default function App() {
     showToast(`Staff member ${newStaff.name} invited!`, 'success');
   };
 
-  const handleUpdateTenantTier = (newTier) => {
+  const handleUpdateTenantTier = (newTier, durationMonths = 1, phone = '+254722000111') => {
+    const today = new Date();
+    const monthsToAdd = Number(durationMonths) || 1;
+    const expiryDateObj = new Date(today.setMonth(today.getMonth() + monthsToAdd));
+    const expiryStr = expiryDateObj.toISOString().split('T')[0];
+    const newToken = `LIC-${newTier}-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${expiryStr}`;
+
     setTenants(prev => prev.map(t => {
       if (t.id === activeTenantId) {
-        return { ...t, tier: newTier };
+        return {
+          ...t,
+          tier: newTier,
+          licenseExpiryDate: expiryStr,
+          licenseToken: newToken,
+          subscriptionPeriodMonths: monthsToAdd,
+          status: 'ACTIVE'
+        };
       }
       return t;
     }));
-    showToast(`Tenant subscription upgraded to ${newTier}!`, 'success');
+    showToast(`M-Pesa STK Push Confirmed! Subscription renewed to ${newTier} (${monthsToAdd} Month${monthsToAdd > 1 ? 's' : ''}) — Valid until ${expiryStr}!`, 'success');
   };
 
   const handleOnboardTenant = (newTenantData) => {
@@ -386,32 +419,6 @@ export default function App() {
               Sign In to Store Workspace <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Demo Account Quick-Fill Bar */}
-          <div className="pt-4 border-t border-[#2A364F] space-y-2 text-center">
-            <div className="text-[11px] text-slate-400 font-semibold">
-              Demo Test Accounts Quick-Fill:
-            </div>
-            <div className="flex justify-center gap-2">
-              {[
-                { username: 'test1admin', label: '👑 test1admin (Admin)' },
-                { username: 'test1user', label: '🏢 test1user (Owner)' },
-                { username: 'test2user', label: '💳 test2user (Cashier)' }
-              ].map(item => (
-                <button
-                  key={item.username}
-                  type="button"
-                  onClick={() => {
-                    setLoginUsername(item.username);
-                    handlePerformLogin(TEST_USERS.find(u => u.username === item.username));
-                  }}
-                  className="px-2.5 py-1 bg-[#121824] hover:bg-slate-800 text-slate-300 hover:text-emerald-400 text-[11px] font-mono rounded-lg border border-[#2A364F] transition-all"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     );
