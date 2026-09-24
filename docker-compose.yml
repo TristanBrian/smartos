@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # 1. PostgreSQL Database with schema-per-tenant isolation
   biashara-postgres:
     image: postgres:16-alpine
     container_name: biashara-postgres
@@ -10,7 +11,7 @@ services:
       POSTGRES_USER: biashara_admin
       POSTGRES_PASSWORD: biashara_secure_pass_2026
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
@@ -20,15 +21,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # 2. Redis Distributed Cache & Idempotency Store
   biashara-redis:
     image: redis:7-alpine
     container_name: biashara-redis
     restart: always
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
 
+  # 3. Zookeeper for Kafka
   biashara-zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: biashara-zookeeper
@@ -36,6 +39,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
+  # 4. Kafka Event Backbone
   biashara-kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: biashara-kafka
@@ -51,6 +55,7 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  # 5. Java 21 Spring Boot Domain Backend Microservices
   biashara-backend:
     build:
       context: ./services/backend
@@ -73,6 +78,7 @@ services:
       SPRING_REDIS_HOST: biashara-redis
       SPRING_KAFKA_BOOTSTRAP_SERVERS: biashara-kafka:29092
 
+  # 6. BiasharaOS React Web & POS Frontend Application
   biashara-web:
     build:
       context: ./clients/web
