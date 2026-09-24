@@ -3,11 +3,11 @@ import {
   Package, Plus, AlertCircle, TrendingDown, ArrowRightLeft,
   ShieldAlert, History, Edit3, CheckCircle2, Image, Upload,
   MinusCircle, PlusCircle, ArrowDown, ArrowUp, BarChart2,
-  Sparkles, DollarSign, Scale, Info, Eye, X
+  Sparkles, DollarSign, Scale, Info, Eye, X, Trash2
 } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
-export default function InventoryManager({ products, ledgerEntries, onAddProduct, onUpdateStock, activeTenant }) {
+export default function InventoryManager({ products, ledgerEntries, onAddProduct, onUpdateStock, onUpdateProduct, onDeleteProduct, activeTenant }) {
   const [activeTab, setActiveTab] = useState('CATALOG'); // CATALOG, LEDGER, INTELLIGENCE, TRANSFERS
   const [search, setSearch] = useState('');
 
@@ -20,6 +20,14 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
 
   // Product Performance / BI Details Modal
   const [inspectProduct, setInspectProduct] = useState(null);
+
+  // Edit Product Modal State
+  const [editProductModal, setEditProductModal] = useState(false);
+  const [editProductData, setEditProductData] = useState(null);
+
+  // Delete Product Confirmation Modal State
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   // New Product Modal State
   const [newProductModal, setNewProductModal] = useState(false);
@@ -166,6 +174,63 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
     });
   };
 
+  const handleOpenEditProduct = (prod) => {
+    setEditProductData({
+      id: prod.id,
+      sku: prod.sku,
+      name: prod.name,
+      category: prod.category,
+      barcode: prod.barcode || '',
+      uom: prod.uom || 'Kg',
+      costPriceKSh: (prod.costPriceCents / 100).toString(),
+      sellPriceKSh: (prod.sellPriceCents / 100).toString(),
+      vatRate: prod.vatRate || 0,
+      stockOnHand: prod.stockOnHand,
+      reorderThreshold: prod.reorderThreshold,
+      imageUrl: prod.imageUrl || ''
+    });
+    setEditProductModal(true);
+  };
+
+  const handleSaveEditProduct = (e) => {
+    e.preventDefault();
+    if (!editProductData || !editProductData.name || !editProductData.sku) return;
+
+    const updated = {
+      id: editProductData.id,
+      sku: editProductData.sku,
+      name: editProductData.name,
+      category: editProductData.category,
+      barcode: editProductData.barcode || `${Math.floor(616110000000 + Math.random() * 999999)}`,
+      uom: editProductData.uom,
+      costPriceCents: Math.round(parseFloat(editProductData.costPriceKSh || 0) * 100),
+      sellPriceCents: Math.round(parseFloat(editProductData.sellPriceKSh || 0) * 100),
+      vatRate: parseInt(editProductData.vatRate || 0),
+      stockOnHand: parseFloat(editProductData.stockOnHand || 0),
+      reorderThreshold: parseFloat(editProductData.reorderThreshold || 0),
+      imageUrl: editProductData.imageUrl || null
+    };
+
+    if (onUpdateProduct) {
+      onUpdateProduct(updated);
+    }
+    setEditProductModal(false);
+    setEditProductData(null);
+  };
+
+  const handleOpenDeleteProduct = (prod) => {
+    setProductToDelete(prod);
+    setDeleteConfirmModal(true);
+  };
+
+  const handleConfirmDeleteProduct = () => {
+    if (productToDelete && onDeleteProduct) {
+      onDeleteProduct(productToDelete.id);
+    }
+    setDeleteConfirmModal(false);
+    setProductToDelete(null);
+  };
+
   // Live adjustment calculation
   const rawQty = Math.abs(parseFloat(deltaQtyInput) || 0);
   const signedDelta = adjustmentDirection === 'DECREASE' ? -rawQty : rawQty;
@@ -309,9 +374,24 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                             </button>
                             <button
                               onClick={() => handleOpenAdjustment(prod)}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700"
+                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700"
+                              title="Adjust Stock Qty"
                             >
                               Adjust Stock
+                            </button>
+                            <button
+                              onClick={() => handleOpenEditProduct(prod)}
+                              className="p-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[11px] rounded-lg border border-amber-500/30 flex items-center gap-1"
+                              title="Edit Product SKU Details"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenDeleteProduct(prod)}
+                              className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-[11px] rounded-lg border border-rose-500/30 flex items-center gap-1"
+                              title="Delete Product from Catalog"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                             </button>
                           </div>
                         </td>
@@ -784,6 +864,164 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Edit Product Details Modal */}
+      {editProductModal && editProductData && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleSaveEditProduct} className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <Edit3 className="w-5 h-5 text-amber-400" /> Edit Product SKU: {editProductData.sku}
+              </h3>
+              <button type="button" onClick={() => setEditProductModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Category *</label>
+                <select
+                  value={editProductData.category}
+                  onChange={(e) => setEditProductData({ ...editProductData, category: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 cursor-pointer"
+                >
+                  <option value="Fresh Produce">Fresh Produce (Onions, Tomatoes, etc.)</option>
+                  <option value="Grains & Flour">Grains & Flour (Unga, Rice)</option>
+                  <option value="Beverages & Dairy">Beverages & Dairy (Milk, Juice)</option>
+                  <option value="Pantry Essentials">Pantry Essentials (Sugar, Salt)</option>
+                  <option value="Household">Household (Soap, Tissue)</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                  <option value="General">General Merchandise</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Unit of Measure (UOM) *</label>
+                <select
+                  value={editProductData.uom}
+                  onChange={(e) => setEditProductData({ ...editProductData, uom: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 cursor-pointer font-bold text-amber-400"
+                >
+                  <option value="Kg">Kg (Kilograms)</option>
+                  <option value="Gram">Gram (Grams)</option>
+                  <option value="Litre">Litre (Liquids, Cooking Oil)</option>
+                  <option value="Pouch">Pouch / Packet</option>
+                  <option value="Piece">Piece / Unit</option>
+                  <option value="Strip">Strip (Medicine)</option>
+                  <option value="Box">Box / Carton</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Product Name *</label>
+                <input
+                  type="text" required
+                  value={editProductData.name}
+                  onChange={(e) => setEditProductData({ ...editProductData, name: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">SKU Code *</label>
+                <input
+                  type="text" required
+                  value={editProductData.sku}
+                  onChange={(e) => setEditProductData({ ...editProductData, sku: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-amber-400 font-mono focus:outline-none focus:border-amber-500 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Cost Price (KSh / {editProductData.uom})</label>
+                <input
+                  type="number" step="0.01"
+                  value={editProductData.costPriceKSh}
+                  onChange={(e) => setEditProductData({ ...editProductData, costPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Sell Price (KSh / {editProductData.uom})</label>
+                <input
+                  type="number" step="0.01"
+                  value={editProductData.sellPriceKSh}
+                  onChange={(e) => setEditProductData({ ...editProductData, sellPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Stock on Hand ({editProductData.uom})</label>
+                <input
+                  type="number" step="0.1"
+                  value={editProductData.stockOnHand}
+                  onChange={(e) => setEditProductData({ ...editProductData, stockOnHand: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Reorder Threshold ({editProductData.uom})</label>
+                <input
+                  type="number" step="0.1"
+                  value={editProductData.reorderThreshold}
+                  onChange={(e) => setEditProductData({ ...editProductData, reorderThreshold: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2A364F]">
+              <button type="button" onClick={() => setEditProductModal(false)} className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl">
+                Cancel
+              </button>
+              <button type="submit" className="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20">
+                Update Product Catalog
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Delete Product Confirmation Modal */}
+      {deleteConfirmModal && productToDelete && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-rose-500/50 space-y-4 text-center">
+            <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/30">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-slate-100 text-lg font-display">Delete Product from Store Catalog</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Are you sure you want to permanently delete <strong className="text-slate-200">{productToDelete.name}</strong> (<code className="text-rose-400">{productToDelete.sku}</code>)?
+              </p>
+            </div>
+
+            <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-xl text-xs text-rose-300 text-left space-y-1">
+              <strong>⚠️ Warning:</strong> This action will remove the product SKU from active POS checkout catalog and log a deletion record in the audit ledger.
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmModal(false)}
+                className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteProduct}
+                className="py-2.5 bg-rose-500 hover:bg-rose-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-rose-500/20"
+              >
+                Delete Product SKU
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

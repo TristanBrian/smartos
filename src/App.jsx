@@ -354,18 +354,18 @@ export default function App() {
 
   const handleUpdateStock = (sku, delta, type, reason) => {
     setProducts(prev => prev.map(p => {
-      if (p.sku === sku) {
+      if (p.sku === sku || p.id === sku) {
         return { ...p, stockOnHand: Math.max(0, p.stockOnHand + delta) };
       }
       return p;
     }));
 
-    const targetProd = products.find(p => p.sku === sku);
+    const targetProd = products.find(p => p.sku === sku || p.id === sku);
     const ledgerEntry = {
       id: `ledg_${Date.now()}`,
       timestamp: new Date().toISOString(),
       type: type,
-      productSku: sku,
+      productSku: targetProd ? targetProd.sku : sku,
       productName: targetProd ? targetProd.name : sku,
       delta: delta,
       runningBalance: (targetProd ? targetProd.stockOnHand : 0) + delta,
@@ -374,7 +374,45 @@ export default function App() {
       reason: reason
     };
     setLedgerEntries(prev => [ledgerEntry, ...prev]);
-    showToast(`Stock updated for ${sku} (${delta > 0 ? '+' : ''}${delta})`, 'success');
+    showToast(`Stock updated for ${targetProd ? targetProd.sku : sku} (${delta > 0 ? '+' : ''}${delta})`, 'success');
+  };
+
+  const handleUpdateProduct = (updatedProd) => {
+    setProducts(prev => prev.map(p => p.id === updatedProd.id ? updatedProd : p));
+    const ledgerEntry = {
+      id: `ledg_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'PRODUCT_UPDATE',
+      productSku: updatedProd.sku,
+      productName: updatedProd.name,
+      delta: 0,
+      runningBalance: updatedProd.stockOnHand,
+      refDocument: 'CATALOG_EDIT',
+      actorName: currentUser ? currentUser.username : 'Admin',
+      reason: `Product catalog details updated (Price: KSh ${(updatedProd.sellPriceCents / 100).toFixed(2)})`
+    };
+    setLedgerEntries(prev => [ledgerEntry, ...prev]);
+    showToast(`Product '${updatedProd.name}' (${updatedProd.sku}) updated successfully!`, 'success');
+  };
+
+  const handleDeleteProduct = (productId) => {
+    const target = products.find(p => p.id === productId);
+    if (!target) return;
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    const ledgerEntry = {
+      id: `ledg_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'PRODUCT_DELETED',
+      productSku: target.sku,
+      productName: target.name,
+      delta: -target.stockOnHand,
+      runningBalance: 0,
+      refDocument: 'CATALOG_DELETE',
+      actorName: currentUser ? currentUser.username : 'Admin',
+      reason: `Product removed from store catalog by ${currentUser ? currentUser.username : 'Admin'}`
+    };
+    setLedgerEntries(prev => [ledgerEntry, ...prev]);
+    showToast(`Product '${target.name}' (${target.sku}) deleted from catalog!`, 'warning');
   };
 
   const handleMatchPayment = (transId, receiptNo) => {
@@ -853,6 +891,8 @@ export default function App() {
             ledgerEntries={ledgerEntries}
             onAddProduct={handleAddProduct}
             onUpdateStock={handleUpdateStock}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
             activeTenant={activeTenant}
           />
         )}
@@ -916,6 +956,11 @@ export default function App() {
           <AdminConsole
             tenants={tenants}
             activeTenant={activeTenant}
+            products={products}
+            onAddProduct={handleAddProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
+            onUpdateStock={handleUpdateStock}
             onSwitchTenant={setActiveTenantId}
             onUpdateTenantTier={handleUpdateTenantTier}
             onOnboardTenant={handleOnboardTenant}

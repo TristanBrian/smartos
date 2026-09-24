@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus, Building2, Phone, MapPin, Check, Key, Calendar, Sparkles } from 'lucide-react';
+import {
+  ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus,
+  Building2, Phone, MapPin, Check, Key, Calendar, Sparkles, Package, Edit3, Trash2, AlertCircle,
+  ArrowUp, ArrowDown, Image, Upload
+} from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
-export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant, onAdminExtendLicenseToken, onToggleTenantStatus }) {
+export default function AdminConsole({
+  tenants,
+  activeTenant,
+  products = [],
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct,
+  onUpdateStock,
+  onSwitchTenant,
+  onUpdateTenantTier,
+  onOnboardTenant,
+  onAdminExtendLicenseToken,
+  onToggleTenantStatus
+}) {
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [selectedTargetTenant, setSelectedTargetTenant] = useState(null);
   const [consentApproved, setConsentApproved] = useState(false);
@@ -33,6 +50,122 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
   const [extendMonths, setExtendMonths] = useState(3);
   const [extendTier, setExtendTier] = useState('LITE');
   const [extendNotes, setExtendNotes] = useState('Manual Out-of-Band Payment / Bank Wire Verified');
+
+  // Admin Stock & Inventory CRUD State
+  const [stockSearch, setStockSearch] = useState('');
+  const [adminAddModal, setAdminAddModal] = useState(false);
+  const [adminAddData, setAdminAddData] = useState({
+    sku: '', name: '', category: 'Fresh Produce', barcode: '', uom: 'Kg',
+    costPriceKSh: '', sellPriceKSh: '', vatRate: 0, stockOnHand: 10, reorderThreshold: 5, imageUrl: ''
+  });
+  const [adminEditModal, setAdminEditModal] = useState(false);
+  const [adminEditData, setAdminEditData] = useState(null);
+  const [adminDeleteModal, setAdminDeleteModal] = useState(false);
+  const [adminDeleteTarget, setAdminDeleteTarget] = useState(null);
+  const [adminAdjustModal, setAdminAdjustModal] = useState(false);
+  const [adminAdjustTarget, setAdminAdjustTarget] = useState(null);
+  const [adminAdjustQty, setAdminAdjustQty] = useState(1);
+  const [adminAdjustDir, setAdminAdjustDir] = useState('DECREASE');
+  const [adminAdjustReason, setAdminAdjustReason] = useState('Damaged stock');
+
+  const handleAdminOpenEditProduct = (prod) => {
+    setAdminEditData({
+      id: prod.id,
+      sku: prod.sku,
+      name: prod.name,
+      category: prod.category,
+      barcode: prod.barcode || '',
+      uom: prod.uom || 'Kg',
+      costPriceKSh: (prod.costPriceCents / 100).toString(),
+      sellPriceKSh: (prod.sellPriceCents / 100).toString(),
+      vatRate: prod.vatRate || 0,
+      stockOnHand: prod.stockOnHand,
+      reorderThreshold: prod.reorderThreshold,
+      imageUrl: prod.imageUrl || ''
+    });
+    setAdminEditModal(true);
+  };
+
+  const handleAdminSaveEditProduct = (e) => {
+    e.preventDefault();
+    if (!adminEditData || !adminEditData.name || !adminEditData.sku) return;
+
+    const updated = {
+      id: adminEditData.id,
+      sku: adminEditData.sku,
+      name: adminEditData.name,
+      category: adminEditData.category,
+      barcode: adminEditData.barcode || `${Math.floor(616110000000 + Math.random() * 999999)}`,
+      uom: adminEditData.uom,
+      costPriceCents: Math.round(parseFloat(adminEditData.costPriceKSh || 0) * 100),
+      sellPriceCents: Math.round(parseFloat(adminEditData.sellPriceKSh || 0) * 100),
+      vatRate: parseInt(adminEditData.vatRate || 0),
+      stockOnHand: parseFloat(adminEditData.stockOnHand || 0),
+      reorderThreshold: parseFloat(adminEditData.reorderThreshold || 0),
+      imageUrl: adminEditData.imageUrl || null
+    };
+
+    if (onUpdateProduct) {
+      onUpdateProduct(updated);
+    }
+    setAdminEditModal(false);
+    setAdminEditData(null);
+  };
+
+  const handleAdminCreateProduct = (e) => {
+    e.preventDefault();
+    if (!adminAddData.name || !adminAddData.sku) return;
+
+    const created = {
+      id: `prod_${Date.now()}`,
+      sku: adminAddData.sku,
+      name: adminAddData.name,
+      category: adminAddData.category,
+      barcode: adminAddData.barcode || `${Math.floor(616110000000 + Math.random() * 999999)}`,
+      uom: adminAddData.uom,
+      costPriceCents: Math.round(parseFloat(adminAddData.costPriceKSh || 0) * 100),
+      sellPriceCents: Math.round(parseFloat(adminAddData.sellPriceKSh || 0) * 100),
+      vatRate: parseInt(adminAddData.vatRate || 0),
+      stockOnHand: parseFloat(adminAddData.stockOnHand || 0),
+      reorderThreshold: parseFloat(adminAddData.reorderThreshold || 0),
+      lastRestockDate: new Date().toISOString().split('T')[0],
+      daysNoSale: 0,
+      imageUrl: adminAddData.imageUrl || null
+    };
+
+    if (onAddProduct) {
+      onAddProduct(created);
+    }
+    setAdminAddModal(false);
+    setAdminAddData({
+      sku: '', name: '', category: 'Fresh Produce', barcode: '', uom: 'Kg',
+      costPriceKSh: '', sellPriceKSh: '', vatRate: 0, stockOnHand: 10, reorderThreshold: 5, imageUrl: ''
+    });
+  };
+
+  const handleAdminConfirmDeleteProduct = () => {
+    if (adminDeleteTarget && onDeleteProduct) {
+      onDeleteProduct(adminDeleteTarget.id);
+    }
+    setAdminDeleteModal(false);
+    setAdminDeleteTarget(null);
+  };
+
+  const handleAdminSaveStockAdjust = () => {
+    if (!adminAdjustTarget || adminAdjustQty <= 0) return;
+    const qty = parseFloat(adminAdjustQty) || 0;
+    const signedDelta = adminAdjustDir === 'DECREASE' ? -qty : qty;
+    if (onUpdateStock) {
+      onUpdateStock(
+        adminAdjustTarget.sku,
+        signedDelta,
+        adminAdjustDir === 'DECREASE' ? 'LOSS_WRITE_OFF' : 'RESTOCK',
+        `Admin Adjust: ${adminAdjustReason}`
+      );
+    }
+    setAdminAdjustModal(false);
+    setAdminAdjustTarget(null);
+  };
 
   const handleOpenExtendToken = (tenant) => {
     setExtendTargetTenant(tenant);
@@ -281,6 +414,91 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
               </button>
             </div>
           ))}
+      {/* Global Platform Stock & Product Catalog Intelligence (Admin CRUD) */}
+      <div className="glass-panel p-5 rounded-2xl border border-emerald-500/30 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2 font-display">
+              <Package className="w-4 h-4 text-emerald-400" /> Platform Stock & Product Catalog Intelligence (CRUD Authority)
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Full admin control to view, add, edit, adjust, or delete product stock items across tenant stores.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Search stock by SKU or name..."
+              value={stockSearch}
+              onChange={(e) => setStockSearch(e.target.value)}
+              className="bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 w-52"
+            />
+            <button
+              onClick={() => setAdminAddModal(true)}
+              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" /> Add Product SKU
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-[#121824] text-slate-400 font-semibold border-b border-[#2A364F]">
+              <tr>
+                <th className="p-3">SKU CODE</th>
+                <th className="p-3">PRODUCT NAME</th>
+                <th className="p-3">CATEGORY</th>
+                <th className="p-3 text-right">COST PRICE</th>
+                <th className="p-3 text-right">SELL PRICE</th>
+                <th className="p-3 text-center">STOCK ON HAND</th>
+                <th className="p-3 text-right">ADMIN ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 text-slate-200">
+              {products
+                .filter(p => p.name.toLowerCase().includes(stockSearch.toLowerCase()) || p.sku.toLowerCase().includes(stockSearch.toLowerCase()))
+                .map(p => (
+                  <tr key={p.id} className="hover:bg-slate-800/30">
+                    <td className="p-3 font-mono text-emerald-400 font-bold">{p.sku}</td>
+                    <td className="p-3 font-semibold text-slate-100">{p.name}</td>
+                    <td className="p-3 text-slate-400">{p.category}</td>
+                    <td className="p-3 text-right font-mono text-slate-400">KSh {(p.costPriceCents / 100).toFixed(2)}</td>
+                    <td className="p-3 text-right font-mono text-emerald-300 font-bold">KSh {(p.sellPriceCents / 100).toFixed(2)}</td>
+                    <td className="p-3 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        p.stockOnHand <= p.reorderThreshold ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-200'
+                      }`}>
+                        {p.stockOnHand} {p.uom}
+                      </span>
+                    </td>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleAdminOpenAdjustStock(p)}
+                          className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold rounded-lg border border-slate-700"
+                        >
+                          Adjust Qty
+                        </button>
+                        <button
+                          onClick={() => handleAdminOpenEditProduct(p)}
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold rounded-lg border border-amber-500/30 flex items-center gap-1"
+                        >
+                          <Edit3 className="w-3 h-3" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleAdminOpenDeleteProduct(p)}
+                          className="px-2 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[10px] font-bold rounded-lg border border-rose-500/30 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -665,22 +883,357 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setExtendModal(false)}
-                  className="py-2.5 bg-slate-800 text-slate-300 font-semibold rounded-xl"
+      {/* Admin Add New Product SKU Modal */}
+      {adminAddModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleAdminCreateProduct} className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <Package className="w-5 h-5 text-emerald-400" /> Platform Admin: Add Product SKU
+              </h3>
+              <button type="button" onClick={() => setAdminAddModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Category *</label>
+                <select
+                  value={adminAddData.category}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, category: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5"
-                >
-                  <Key className="w-4 h-4" /> Issue & Extend Token
-                </button>
+                  <option value="Fresh Produce">Fresh Produce</option>
+                  <option value="Grains & Flour">Grains & Flour</option>
+                  <option value="Beverages & Dairy">Beverages & Dairy</option>
+                  <option value="Pantry Essentials">Pantry Essentials</option>
+                  <option value="Household">Household</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                  <option value="General">General Merchandise</option>
+                </select>
               </div>
-            </form>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Unit of Measure (UOM) *</label>
+                <select
+                  value={adminAddData.uom}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, uom: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                >
+                  <option value="Kg">Kg (Kilograms)</option>
+                  <option value="Gram">Gram</option>
+                  <option value="Litre">Litre</option>
+                  <option value="Pouch">Pouch</option>
+                  <option value="Piece">Piece</option>
+                  <option value="Strip">Strip</option>
+                  <option value="Box">Box</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Product Name *</label>
+                <input
+                  type="text" required placeholder="e.g. Premium Grade Sugar"
+                  value={adminAddData.name}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, name: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">SKU Code *</label>
+                <input
+                  type="text" required placeholder="e.g. PAN-SUGAR-1KG"
+                  value={adminAddData.sku}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, sku: e.target.value.toUpperCase() })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Cost Price (KSh)</label>
+                <input
+                  type="number" step="0.01" placeholder="100.00"
+                  value={adminAddData.costPriceKSh}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, costPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Sell Price (KSh)</label>
+                <input
+                  type="number" step="0.01" placeholder="140.00"
+                  value={adminAddData.sellPriceKSh}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, sellPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Initial Stock</label>
+                <input
+                  type="number" step="0.1" value={adminAddData.stockOnHand}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, stockOnHand: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Reorder Threshold</label>
+                <input
+                  type="number" step="0.1" value={adminAddData.reorderThreshold}
+                  onChange={(e) => setAdminAddData({ ...adminAddData, reorderThreshold: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2A364F]">
+              <button type="button" onClick={() => setAdminAddModal(false)} className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl">
+                Cancel
+              </button>
+              <button type="submit" className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20">
+                Save & Provision SKU
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Admin Edit Product Modal */}
+      {adminEditModal && adminEditData && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={handleAdminSaveEditProduct} className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-amber-500/40 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <Edit3 className="w-5 h-5 text-amber-400" /> Admin Edit SKU: {adminEditData.sku}
+              </h3>
+              <button type="button" onClick={() => setAdminEditModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Category *</label>
+                <select
+                  value={adminEditData.category}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, category: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="Fresh Produce">Fresh Produce</option>
+                  <option value="Grains & Flour">Grains & Flour</option>
+                  <option value="Beverages & Dairy">Beverages & Dairy</option>
+                  <option value="Pantry Essentials">Pantry Essentials</option>
+                  <option value="Household">Household</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                  <option value="General">General Merchandise</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Unit of Measure (UOM) *</label>
+                <select
+                  value={adminEditData.uom}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, uom: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                >
+                  <option value="Kg">Kg</option>
+                  <option value="Gram">Gram</option>
+                  <option value="Litre">Litre</option>
+                  <option value="Pouch">Pouch</option>
+                  <option value="Piece">Piece</option>
+                  <option value="Strip">Strip</option>
+                  <option value="Box">Box</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Product Name *</label>
+                <input
+                  type="text" required
+                  value={adminEditData.name}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, name: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">SKU Code *</label>
+                <input
+                  type="text" required
+                  value={adminEditData.sku}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, sku: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Cost Price (KSh)</label>
+                <input
+                  type="number" step="0.01"
+                  value={adminEditData.costPriceKSh}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, costPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Sell Price (KSh)</label>
+                <input
+                  type="number" step="0.01"
+                  value={adminEditData.sellPriceKSh}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, sellPriceKSh: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Stock on Hand</label>
+                <input
+                  type="number" step="0.1"
+                  value={adminEditData.stockOnHand}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, stockOnHand: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Reorder Threshold</label>
+                <input
+                  type="number" step="0.1"
+                  value={adminEditData.reorderThreshold}
+                  onChange={(e) => setAdminEditData({ ...adminEditData, reorderThreshold: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2A364F]">
+              <button type="button" onClick={() => setAdminEditModal(false)} className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl">
+                Cancel
+              </button>
+              <button type="submit" className="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20">
+                Update Product SKU
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Admin Adjust Stock Modal */}
+      {adminAdjustModal && adminAdjustTarget && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base">Admin Stock Adjust: {adminAdjustTarget.name}</h3>
+              <button onClick={() => setAdminAdjustModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F] text-xs flex justify-between items-center">
+              <span className="text-slate-400">Current Stock on Hand:</span>
+              <strong className="text-emerald-400 font-mono text-sm">{adminAdjustTarget.stockOnHand} {adminAdjustTarget.uom}</strong>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Adjustment Action:</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdminAdjustDir('DECREASE')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      adminAdjustDir === 'DECREASE' ? 'bg-rose-500/20 text-rose-300 border-rose-500 shadow-md' : 'bg-[#121824] border-[#2A364F] text-slate-400'
+                    }`}
+                  >
+                    <ArrowDown className="w-3.5 h-3.5 text-rose-400" /> Deduct (-)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminAdjustDir('INCREASE')}
+                    className={`py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      adminAdjustDir === 'INCREASE' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500 shadow-md' : 'bg-[#121824] border-[#2A364F] text-slate-400'
+                    }`}
+                  >
+                    <ArrowUp className="w-3.5 h-3.5 text-emerald-400" /> Restock (+)
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Quantity:</label>
+                <input
+                  type="number" step="0.1" min="0.1"
+                  value={adminAdjustQty}
+                  onChange={(e) => setAdminAdjustQty(e.target.value)}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-sm font-mono text-slate-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Reason Note:</label>
+                <input
+                  type="text"
+                  value={adminAdjustReason}
+                  onChange={(e) => setAdminAdjustReason(e.target.value)}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2A364F]">
+              <button
+                type="button"
+                onClick={() => setAdminAdjustModal(false)}
+                className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminSaveStockAdjust}
+                className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20"
+              >
+                Apply Admin Stock Adjustment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Delete Product Confirmation Modal */}
+      {adminDeleteModal && adminDeleteTarget && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-rose-500/50 space-y-4 text-center">
+            <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto border border-rose-500/30">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            <div>
+              <h3 className="font-bold text-slate-100 text-lg font-display">Admin Delete Product SKU</h3>
+              <p className="text-xs text-slate-400 mt-1">
+                Are you sure you want to delete <strong className="text-slate-200">{adminDeleteTarget.name}</strong> (<code className="text-rose-400">{adminDeleteTarget.sku}</code>)?
+              </p>
+            </div>
+
+            <div className="bg-rose-950/30 border border-rose-500/30 p-3 rounded-xl text-xs text-rose-300 text-left space-y-1">
+              <strong>⚠️ Admin Authority Warning:</strong> Deleting this product will remove it from store inventory catalogs and append a deletion audit log to the ledger.
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setAdminDeleteModal(false)}
+                className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleAdminConfirmDeleteProduct}
+                className="py-2.5 bg-rose-500 hover:bg-rose-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-rose-500/20"
+              >
+                Confirm Delete SKU
+              </button>
+            </div>
           </div>
         </div>
       )}
