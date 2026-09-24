@@ -1,28 +1,21 @@
 class SaleEnvelope {
   final String clientUuid;
   final String receiptNumber;
+  final String timestamp;
   final int grandTotalCents;
-  final DateTime timestamp;
   final String paymentMethod;
-  final String status;
+  final int itemCount;
+  String syncStatus;
 
   SaleEnvelope({
     required this.clientUuid,
     required this.receiptNumber,
-    required this.grandTotalCents,
     required this.timestamp,
+    required this.grandTotalCents,
     required this.paymentMethod,
-    this.status = 'PENDING_SYNC',
+    required this.itemCount,
+    this.syncStatus = 'PENDING',
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'clientUuid': clientUuid,
-      'receiptNumber': receiptNumber,
-      'grandTotalCents': grandTotalCents,
-      'timestamp': timestamp.toIso8601String(),
-      'paymentMethod': paymentMethod,
-      'status': status,
-    };
-  }
+  double get grandTotalKSh => grandTotalCents / 100.0;
 }
