@@ -22,14 +22,27 @@ import ProfileManagement from './components/ProfileManagement';
 
 export default function App() {
   const [tenants, setTenants] = useState(INITIAL_TENANTS);
-  const [activeTenantId, setActiveTenantId] = useState('t_duka_nakuru');
-  const [activeTab, setActiveTab] = useState('POS');
+  // Persistent Session & Workspace State Initialization
+  const [activeTenantId, setActiveTenantId] = useState(() => {
+    return localStorage.getItem('biashara_tenant_id') || 't_duka_nakuru';
+  });
+
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('biashara_active_tab') || 'POS';
+  });
 
   const activeTenant = tenants.find(t => t.id === activeTenantId) || tenants[0];
 
-  // RBAC Session & Auth State
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  // RBAC Session & Auth State with localStorage Persistence
+  const [currentUser, setCurrentUser] = useState(() => {
+    const saved = localStorage.getItem('biashara_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return Boolean(localStorage.getItem('biashara_user'));
+  });
+
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -44,9 +57,12 @@ export default function App() {
   const [etimsQueue, setEtimsQueue] = useState(INITIAL_ETIMS_QUEUE);
   const [staffList, setStaffList] = useState(INITIAL_STAFF);
 
-  // Network & Sync States - Auto-Detected via navigator.onLine & Network Events
+  // Network & Offline Outbox State with localStorage Persistence
   const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
-  const [offlineOutbox, setOfflineOutbox] = useState([]);
+  const [offlineOutbox, setOfflineOutbox] = useState(() => {
+    const saved = localStorage.getItem('biashara_offline_outbox');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [syncStatus, setSyncStatus] = useState('IDLE');
 
   // Notifications
@@ -56,6 +72,27 @@ export default function App() {
     setToastNotification({ message, type });
     setTimeout(() => setToastNotification(null), 4000);
   };
+
+  // Synchronize Session & Offline Outbox to localStorage
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('biashara_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('biashara_user');
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('biashara_tenant_id', activeTenantId);
+  }, [activeTenantId]);
+
+  useEffect(() => {
+    localStorage.setItem('biashara_active_tab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    localStorage.setItem('biashara_offline_outbox', JSON.stringify(offlineOutbox));
+  }, [offlineOutbox]);
 
   // Automatic Network Online/Offline Listener (Auto-Detection)
   useEffect(() => {

@@ -101,3 +101,70 @@
   background: radial-gradient(circle, transparent, transparent 50%, #FAFAFA 50%, #FAFAFA 100%);
   background-size: 16px 16px;
 }
+
+/* ==========================================
+   PRINT MEDIA STYLES: POS THERMAL RECEIPTS & REPORTS
+   ========================================== */
+@media print {
+  /* Hide overall application shell, header, navbars, and background elements */
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* 1. THERMAL RECEIPT PRINTING (58mm / 80mm Roll Format) */
+  .thermal-receipt, .thermal-receipt * {
+    visibility: visible;
+  }
+
+  .thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm !important; /* Standard 80mm POS Thermal Paper Width */
+    max-width: 80mm !important;
+    padding: 3mm 2mm !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: 'Courier New', Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+
+  .thermal-receipt::after {
+    display: none !important;
+  }
+
+  /* Narrow 58mm POS Printer override class */
+  .thermal-receipt-58mm {
+    width: 58mm !important;
+    max-width: 58mm !important;
+    font-size: 10px !important;
+  }
+
+  /* 2. EXECUTIVE BI REPORT PRINTING (Clean A4 Page Format) */
+  .bi-report-print, .bi-report-print * {
+    visibility: visible;
+  }
+
+  .bi-report-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    padding: 10mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  @page {
+    margin: 5mm;
+  }
+}

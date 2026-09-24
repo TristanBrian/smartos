@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart3, TrendingUp, DollarSign, Download, PieChart, FileText, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, DollarSign, Download, PieChart, FileText, Calendar, Printer } from 'lucide-react';
 
 export default function ReportsBI({ sales, products, activeTenant }) {
   const [dateRange, setDateRange] = useState('TODAY'); // TODAY, 7DAYS, 30DAYS
@@ -46,15 +46,15 @@ export default function ReportsBI({ sales, products, activeTenant }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bi-report-print">
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-display">
-            <BarChart3 className="w-6 h-6 text-emerald-400" /> Business Intelligence & Stock Valuation
+            <BarChart3 className="w-6 h-6 text-emerald-400" /> Business Intelligence & Executive Summary ({activeTenant.name})
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Real-time profit margins, stock valuation, and tax reporting.
+            Real-time profit margins, stock valuation, payment rail mix, and KRA eTIMS tax reporting.
           </p>
         </div>
 
@@ -72,6 +72,13 @@ export default function ReportsBI({ sales, products, activeTenant }) {
               </button>
             ))}
           </div>
+
+          <button
+            onClick={() => window.print()}
+            className="px-3.5 py-2.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-xs font-bold rounded-xl border border-emerald-500/30 flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4 text-emerald-400" /> Print Executive Summary
+          </button>
 
           <button
             onClick={handleExportCsv}
