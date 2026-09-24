@@ -147,7 +147,8 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
           { id: 'DARAJA', label: 'Safaricom Daraja 3.0 Dev Config', icon: Smartphone },
           { id: 'TAX', label: 'KRA eTIMS Tax Profile', icon: ShieldCheck },
           { id: 'SECURITY', label: 'User Security & PIN', icon: Key },
-          { id: 'SUBSCRIPTION', label: 'Subscription & License Renewal', icon: CreditCard }
+          { id: 'SUBSCRIPTION', label: 'Subscription & License Renewal', icon: CreditCard },
+          { id: 'PRIVACY', label: 'Data Privacy & Consent (KDPA 2019)', icon: Lock }
         ].map(tab => (
           <button
             key={tab.id}
@@ -493,6 +494,66 @@ export default function ProfileManagement({ activeTenant, onUpdateTenantProfile,
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 6: Data Privacy, Governance & Consent */}
+        {activeTab === 'PRIVACY' && (
+          <div className="space-y-4 text-xs">
+            <h3 className="font-bold text-slate-100 text-sm border-b border-[#2A364F] pb-2 flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Lock className="w-4 h-4 text-emerald-400" /> Kenya Data Protection Act 2019 & Consent Governance
+              </span>
+              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                KDPA 2019 Verified
+              </span>
+            </h3>
+
+            <div className="p-4 bg-[#121824] rounded-2xl border border-[#2A364F] space-y-2">
+              <h4 className="font-bold text-slate-100 text-xs">Data Controller & Sovereignty Specifications</h4>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                BiasharaOS operates strictly as a Data Processor under the Kenya Data Protection Act (KDPA) 2019. All transactional stock ledgers, customer phones, and sales receipts reside inside isolated database schemas (<code>{activeTenant.schemaName || 'tenant_schema'}</code>).
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <h4 className="font-bold text-slate-200 text-xs">Opt-in Consent & Communications Policy</h4>
+
+              <label className="flex items-start gap-3 p-3 bg-[#121824] rounded-xl border border-[#2A364F] cursor-pointer">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="mt-0.5 rounded border-[#2A364F] bg-[#0B0F17] text-emerald-500 focus:ring-0"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200 text-xs">Automated Customer SMS & Digital Receipts</div>
+                  <div className="text-slate-400 text-[11px]">Allow sending M-Pesa digital receipt links and stock reorder alerts via Safaricom SMS gateway.</div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 bg-[#121824] rounded-xl border border-[#2A364F] cursor-pointer">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="mt-0.5 rounded border-[#2A364F] bg-[#0B0F17] text-emerald-500 focus:ring-0"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200 text-xs">Audited Platform Support Impersonation Access</div>
+                  <div className="text-slate-400 text-[11px]">Grant explicit consent for BiasharaOS Platform Support agents to temporarily access store context during active support tickets (Logged in <code>platform_audit_log</code>).</div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-3 p-3 bg-[#121824] rounded-xl border border-[#2A364F] cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 rounded border-[#2A364F] bg-[#0B0F17] text-emerald-500 focus:ring-0"
+                />
+                <div>
+                  <div className="font-semibold text-slate-200 text-xs">Anonymized Kenyan MSME Market Benchmarking</div>
+                  <div className="text-slate-400 text-[11px]">Opt-in to contribute non-identifiable aggregated sales volume trends to help train local inventory forecasting models.</div>
+                </div>
+              </label>
             </div>
           </div>
         )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Users, UserPlus, Shield, Award, CheckCircle2, Lock, UserCheck, Key, ShieldAlert, Check, X } from 'lucide-react';
-import { TEST_USERS, ROLE_PERMISSIONS_MATRIX } from '../data/mockData';
+import { TEST_USERS, ROLE_PERMISSIONS_MATRIX, SUBSCRIPTION_TIERS } from '../data/mockData';
 
 export default function StaffManagement({ staffList, onAddStaff, activeTenant, currentUser }) {
   const [addModal, setAddModal] = useState(false);
@@ -10,6 +10,12 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
   const handleCreate = (e) => {
     e.preventDefault();
     if (!newStaff.name || !newStaff.phone) return;
+
+    const maxStaff = SUBSCRIPTION_TIERS[activeTenant?.tier || 'LITE']?.maxStaff;
+    if (typeof maxStaff === 'number' && staffList.length >= maxStaff) {
+      alert(`Subscription Tier Limit Exceeded: Your active '${activeTenant?.tier || 'LITE'}' tier allows maximum ${maxStaff} staff members. Please renew or upgrade your subscription via M-Pesa STK Push in Settings / Platform Admin.`);
+      return;
+    }
 
     onAddStaff({
       id: `stf_${Date.now()}`,

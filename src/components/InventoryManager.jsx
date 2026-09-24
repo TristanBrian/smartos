@@ -5,6 +5,7 @@ import {
   MinusCircle, PlusCircle, ArrowDown, ArrowUp, BarChart2,
   Sparkles, DollarSign, Scale, Info, Eye, X
 } from 'lucide-react';
+import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
 export default function InventoryManager({ products, ledgerEntries, onAddProduct, onUpdateStock, activeTenant }) {
   const [activeTab, setActiveTab] = useState('CATALOG'); // CATALOG, LEDGER, INTELLIGENCE, TRANSFERS
@@ -132,6 +133,12 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
   const handleCreateProduct = (e) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.sku) return;
+
+    const maxProds = SUBSCRIPTION_TIERS[activeTenant?.tier || 'LITE']?.maxProducts;
+    if (typeof maxProds === 'number' && products.length >= maxProds) {
+      alert(`Subscription Tier Limit Exceeded: Your active '${activeTenant?.tier || 'LITE'}' tier allows maximum ${maxProds} products. Please renew or upgrade your subscription via M-Pesa STK Push in Store Profile / Platform Admin.`);
+      return;
+    }
 
     const created = {
       id: `prod_${Date.now()}`,

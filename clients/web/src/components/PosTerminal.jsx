@@ -224,6 +224,11 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const handleOpenPayment = () => {
     if (cart.length === 0) return;
 
+    if (activeTenant?.status === 'EXPIRED' || activeTenant?.status === 'SUSPENDED') {
+      alert(`Subscription Expired: Store workspace '${activeTenant.name}' subscription has expired. Please renew via M-Pesa STK Push in Settings / Platform Admin to resume sales.`);
+      return;
+    }
+
     // Hard Guard Check: Ensure no item exceeds current stock on hand
     for (const item of cart) {
       const available = getLatestStock(item.id, item.sku);
