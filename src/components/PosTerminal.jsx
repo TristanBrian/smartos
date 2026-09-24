@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Barcode, ShoppingCart, Trash2, Plus, Minus, CreditCard, DollarSign, Smartphone, Printer, CheckCircle, AlertTriangle, Wifi, WifiOff, Clock } from 'lucide-react';
+import {
+  Search, Barcode, ShoppingCart, Trash2, Plus, Minus, CreditCard,
+  DollarSign, Smartphone, Printer, CheckCircle, AlertTriangle,
+  Wifi, WifiOff, Clock, Bluetooth, Check, RefreshCw
+} from 'lucide-react';
 
 export default function PosTerminal({ products, onCompleteSale, isOffline, activeTenant }) {
   const [cart, setCart] = useState([]);
@@ -10,41 +14,55 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const [pendingDiscount, setPendingDiscount] = useState(0);
   const [pinInput, setPinInput] = useState('');
   const [managerApproved, setManagerApproved] = useState(false);
-  
+
   // Payment modal state
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('MPESA_STK');
   const [customerPhone, setCustomerPhone] = useState('0722000111');
   const [cashTenderedKSh, setCashTenderedKSh] = useState('');
   const [stkPushStep, setStkPushStep] = useState('IDLE');
-  
+
   // Receipt view modal
   const [completedSaleReceipt, setCompletedSaleReceipt] = useState(null);
+
+  // Bluetooth ESC/POS Printer Connection State
+  const [btConnected, setBtConnected] = useState(false);
+  const [btDeviceName, setBtDeviceName] = useState('');
+  const [btCharacteristic, setBtCharacteristic] = useState(null);
+  const [btConnecting, setBtConnecting] = useState(false);
 
   const categories = ['ALL', ...new Set(products.map(p => p.category))];
 
   const filteredProducts = products.filter(p => {
     const matchesCat = selectedCategory === 'ALL' || p.category === selectedCategory;
-    const matchesQuery = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesQuery = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          (p.barcode && p.barcode.includes(searchQuery));
     return matchesCat && matchesQuery;
   });
 
+  const getLatestStock = (productId, sku) => {
+    const p = products.find(prod => prod.id === productId || prod.sku === sku);
+    return p ? p.stockOnHand : 0;
+  };
+
   const addToCart = (product) => {
-    if (product.stockOnHand <= 0 && !activeTenant.allowOversell) {
-      alert(`Cannot sell ${product.name}: Out of stock (Current: 0) and oversell is disabled.`);
+    const currentAvailable = getLatestStock(product.id, product.sku);
+
+    if (currentAvailable <= 0 && !activeTenant.allowOversell) {
+      alert(`Oversell Blocked! ${product.name} is out of stock (Available: 0 ${product.uom}).`);
       return;
     }
 
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.qty + 1 > product.stockOnHand && !activeTenant.allowOversell) {
-          alert(`Quantity limit reached for ${product.name}. Stock available: ${product.stockOnHand}`);
+        const nextQty = Math.round((existing.qty + 1) * 100) / 100;
+        if (nextQty > currentAvailable && !activeTenant.allowOversell) {
+          alert(`Oversell Blocked! Cannot add more ${product.name}. Stock available: ${currentAvailable} ${product.uom}.`);
           return prev;
         }
-        return prev.map(item => item.id === product.id ? { ...item, qty: Math.round((item.qty + 1) * 100) / 100 } : item);
+        return prev.map(item => item.id === product.id ? { ...item, qty: nextQty } : item);
       }
       return [...prev, { ...product, qty: 1 }];
     });
@@ -53,9 +71,14 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const updateQty = (id, delta) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
-        const newQty = Math.round((item.qty + delta) * 100) / 100;
-        if (newQty <= 0) return null;
-        return { ...item, qty: newQty };
+        const currentAvailable = getLatestStock(item.id, item.sku);
+        const nextQty = Math.round((item.qty + delta) * 100) / 100;
+        if (nextQty <= 0) return null;
+        if (nextQty > currentAvailable && !activeTenant.allowOversell) {
+          alert(`Oversell Blocked! Quantity for ${item.name} cannot exceed current stock (${currentAvailable} ${item.uom}).`);
+          return { ...item, qty: currentAvailable };
+        }
+        return { ...item, qty: nextQty };
       }
       return item;
     }).filter(Boolean));
@@ -65,9 +88,10 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
     setCart(prev => prev.map(item => {
       if (item.id === id) {
         if (exactQty <= 0) return null;
-        if (exactQty > item.stockOnHand && !activeTenant.allowOversell) {
-          alert(`Quantity limit reached for ${item.name}. Stock available: ${item.stockOnHand}`);
-          return item;
+        const currentAvailable = getLatestStock(item.id, item.sku);
+        if (exactQty > currentAvailable && !activeTenant.allowOversell) {
+          alert(`Oversell Blocked! Requested ${exactQty} ${item.uom} for ${item.name}, but stock available is only ${currentAvailable} ${item.uom}. Capped to maximum available stock.`);
+          return { ...item, qty: currentAvailable };
         }
         return { ...item, qty: Math.round(exactQty * 100) / 100 };
       }
@@ -79,11 +103,92 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  // Web Bluetooth ESC/POS Printer Connect Handler
+  const handleConnectBluetoothPrinter = async () => {
+    if (!navigator.bluetooth) {
+      alert('Web Bluetooth is not supported in this browser. Please use Google Chrome, Edge, or Chrome for Android.');
+      return;
+    }
+
+    setBtConnecting(true);
+    try {
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [
+          '000018f0-0000-1000-8000-00805f9b34fb', // Standard ESC/POS
+          'e7810a71-73ae-499d-8c15-faa9aef0c3f2', // MPT-II thermal printer
+          '49535343-fe7d-4ae5-8fa9-9fafd205e455'  // POS-58
+        ]
+      });
+
+      const server = await device.gatt.connect();
+      const services = await server.getPrimaryServices();
+
+      let targetChar = null;
+      for (const service of services) {
+        const characteristics = await service.getCharacteristics();
+        for (const char of characteristics) {
+          if (char.properties.write || char.properties.writeWithoutResponse) {
+            targetChar = char;
+            break;
+          }
+        }
+        if (targetChar) break;
+      }
+
+      if (targetChar) {
+        setBtCharacteristic(targetChar);
+        setBtConnected(true);
+        setBtDeviceName(device.name || 'ESC/POS Thermal Printer');
+        alert(`Successfully paired Bluetooth Thermal Printer: ${device.name || 'ESC/POS Printer'}!`);
+      } else {
+        alert('Connected to Bluetooth device, but no ESC/POS write service was found.');
+      }
+    } catch (err) {
+      console.error('Bluetooth connection error:', err);
+    } finally {
+      setBtConnecting(false);
+    }
+  };
+
+  const sendEscPosBytes = async (textStr) => {
+    if (!btCharacteristic) {
+      window.print();
+      return;
+    }
+
+    try {
+      const encoder = new TextEncoder();
+      const initCmd = new Uint8Array([0x1B, 0x40]); // ESC @ Reset
+      const textBytes = encoder.encode(textStr + '\n\n\n\n');
+      const cutCmd = new Uint8Array([0x1D, 0x56, 0x41, 0x03]); // ESC/POS Paper Cut
+
+      const fullBytes = new Uint8Array(initCmd.length + textBytes.length + cutCmd.length);
+      fullBytes.set(initCmd, 0);
+      fullBytes.set(textBytes, initCmd.length);
+      fullBytes.set(cutCmd, initCmd.length + textBytes.length);
+
+      // Send chunks of 512 bytes
+      const chunkSize = 512;
+      for (let i = 0; i < fullBytes.length; i += chunkSize) {
+        const chunk = fullBytes.subarray(i, i + chunkSize);
+        if (btCharacteristic.properties.writeWithoutResponse) {
+          await btCharacteristic.writeValueWithoutResponse(chunk);
+        } else {
+          await btCharacteristic.writeValueWithResponse(chunk);
+        }
+      }
+    } catch (err) {
+      console.error('ESC/POS Bluetooth Print error:', err);
+      window.print();
+    }
+  };
+
   // Calculations in Cents
-  const rawSubtotalCents = cart.reduce((sum, item) => sum + (item.sellPriceCents * item.qty), 0);
+  const rawSubtotalCents = cart.reduce((sum, item) => sum + Math.round(item.sellPriceCents * item.qty), 0);
   const discountCents = Math.round((rawSubtotalCents * discountPercent) / 100);
   const subtotalAfterDiscountCents = rawSubtotalCents - discountCents;
-  
+
   const taxCents = cart.reduce((sum, item) => {
     if (item.vatRate > 0) {
       const itemSubtotal = (item.sellPriceCents * item.qty) * (1 - discountPercent / 100);
@@ -118,6 +223,16 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
 
   const handleOpenPayment = () => {
     if (cart.length === 0) return;
+
+    // Hard Guard Check: Ensure no item exceeds current stock on hand
+    for (const item of cart) {
+      const available = getLatestStock(item.id, item.sku);
+      if (item.qty > available && !activeTenant.allowOversell) {
+        alert(`Oversell Prevented! Item "${item.name}" quantity (${item.qty} ${item.uom}) exceeds current stock on hand (${available} ${item.uom}). Please adjust cart quantity.`);
+        return;
+      }
+    }
+
     setPaymentModalOpen(true);
     setStkPushStep('IDLE');
     setCashTenderedKSh((grandTotalCents / 100).toString());
@@ -139,6 +254,15 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   };
 
   const finalizeSaleRecord = (method, status) => {
+    // Final Oversell Safety Guard
+    for (const item of cart) {
+      const available = getLatestStock(item.id, item.sku);
+      if (item.qty > available && !activeTenant.allowOversell) {
+        alert(`Sale Aborted! Stock for ${item.name} is insufficient (${available} available).`);
+        return;
+      }
+    }
+
     const receiptNo = `REC-${Math.floor(10000 + Math.random() * 90000)}`;
     const newSale = {
       id: `sale_${Date.now()}`,
@@ -150,8 +274,9 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         sku: i.sku,
         name: i.name,
         qty: i.qty,
+        uom: i.uom,
         unitPriceCents: i.sellPriceCents,
-        lineTotalCents: i.sellPriceCents * i.qty
+        lineTotalCents: Math.round(i.sellPriceCents * i.qty)
       })),
       subtotalCents: rawSubtotalCents,
       discountCents: discountCents,
@@ -178,34 +303,51 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]">
       {/* Product Catalog & Selector */}
       <div className="lg:col-span-7 flex flex-col glass-panel rounded-2xl p-5 overflow-hidden">
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <div className="flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center mb-4">
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by SKU, Product Name or Barcode..."
+              placeholder="Search products by SKU, name, or scan barcode..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#121824] border border-[#2A364F] rounded-xl pl-9 pr-4 py-2.5 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-[#121824] border border-[#2A364F] rounded-xl pl-9 pr-4 py-2 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-emerald-500 font-medium"
             />
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 sm:pb-0">
-            {categories.slice(0, 4).map(cat => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-2 text-xs font-medium rounded-xl whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20'
-                    : 'bg-[#121824] border border-[#2A364F] text-slate-300 hover:border-slate-500'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
+
+          {/* Bluetooth ESC/POS Printer Status Button */}
+          <button
+            onClick={handleConnectBluetoothPrinter}
+            disabled={btConnecting}
+            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-all border ${
+              btConnected
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-md shadow-emerald-500/10'
+                : 'bg-[#121824] text-slate-300 border-[#2A364F] hover:border-slate-500'
+            }`}
+          >
+            <Bluetooth className={`w-3.5 h-3.5 ${btConnected ? 'text-emerald-400' : 'text-slate-400'}`} />
+            <span>{btConnected ? `Printer: ${btDeviceName}` : 'Connect BT Printer'}</span>
+          </button>
         </div>
 
+        {/* Categories Bar */}
+        <div className="flex gap-1.5 overflow-x-auto pb-3 mb-2 border-b border-[#2A364F]">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
+                selectedCategory === cat
+                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                  : 'bg-[#121824] text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Product Cards Grid */}
         <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
           {filteredProducts.map(product => {
             const isLow = product.stockOnHand <= product.reorderThreshold;
@@ -261,6 +403,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           </span>
         </div>
 
+        {/* Cart Item Rows */}
         <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2.5">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 py-10">
@@ -271,6 +414,8 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
             cart.map(item => {
               const isWeighted = item.uom === 'Kg' || item.uom === 'Gram' || item.uom === 'Litre';
               const stepVal = isWeighted ? 0.25 : 1;
+              const available = getLatestStock(item.id, item.sku);
+
               return (
                 <div key={item.id} className="p-3 rounded-xl bg-[#121824] border border-[#2A364F] space-y-2">
                   <div className="flex items-center justify-between">
@@ -278,6 +423,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                       <div className="font-medium text-sm text-slate-200 line-clamp-1">{item.name}</div>
                       <div className="text-xs text-emerald-400 font-medium">
                         KSh {(item.sellPriceCents / 100).toLocaleString()} / {item.uom}
+                        <span className="text-slate-400 text-[10px] ml-2">(Max: {available} {item.uom})</span>
                       </div>
                     </div>
 
@@ -335,6 +481,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           )}
         </div>
 
+        {/* Totals & Charge Actions */}
         <div className="pt-3 border-t border-[#2A364F] space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">Discount Cap:</span>
@@ -393,13 +540,13 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         </div>
       </div>
 
-      {/* Payment Selection & Cash Deposit / Change Calculator Modal */}
+      {/* Payment Selection & Calculator Modal */}
       {paymentModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/30 space-y-5">
+          <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/30 space-y-5 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[#2A364F]">
               <h3 className="font-bold text-slate-100 text-base">Select Payment Rail</h3>
-              <button onClick={() => setPaymentModalOpen(false)} className="text-slate-400 hover:text-white text-sm">✕</button>
+              <button onClick={() => setPaymentModalOpen(false)} className="text-slate-400 hover:text-white text-sm font-bold">✕</button>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -481,22 +628,21 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
 
             <button
               onClick={handleProcessPayment}
-              disabled={stkPushStep === 'SENDING' || stkPushStep === 'WAITING_PIN'}
-              className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm rounded-xl shadow-lg shadow-emerald-500/25 transition-all"
             >
-              {stkPushStep === 'IDLE' ? 'Confirm & Finalize Sale' : 'Processing...'}
+              Confirm Payment & Issue Thermal Receipt
             </button>
           </div>
         </div>
       )}
 
-      {/* Thermal Receipt Preview Modal */}
+      {/* Completed Sale Receipt Modal with Bluetooth Thermal Print capability */}
       {completedSaleReceipt && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="max-w-xs w-full thermal-receipt p-5 rounded-sm space-y-3 text-slate-900 shadow-2xl">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-sm w-full p-5 rounded-2xl border border-emerald-500/30 space-y-4 bg-white text-slate-900 shadow-2xl">
             <div className="text-center space-y-1">
-              <h3 className="font-bold text-base uppercase tracking-wider">{activeTenant.name}</h3>
-              <p className="text-[11px]">{activeTenant.county} Branch</p>
+              <h3 className="font-extrabold text-base tracking-tight">{activeTenant.name}</h3>
+              <p className="text-[10px] text-slate-600">{activeTenant.county} Branch</p>
               <p className="text-[10px]">TEL: {activeTenant.phone}</p>
               {activeTenant.isVatRegistered && <p className="text-[10px]">KRA PIN: {activeTenant.kraPin}</p>}
               <div className="border-b border-dashed border-slate-400 my-2" />
@@ -510,7 +656,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
             <div className="space-y-1 text-xs font-mono">
               {completedSaleReceipt.items.map((item, idx) => (
                 <div key={idx} className="flex justify-between">
-                  <span>{item.qty}x {item.name.substring(0, 16)}</span>
+                  <span>{item.qty} {item.uom || 'x'} {item.name.substring(0, 16)}</span>
                   <span>{(item.lineTotalCents / 100).toFixed(2)}</span>
                 </div>
               ))}
@@ -533,7 +679,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                 <span>TOTAL PAID:</span>
                 <span>KSh {(completedSaleReceipt.grandTotalCents / 100).toFixed(2)}</span>
               </div>
-              
+
               {completedSaleReceipt.paymentMethod === 'CASH' && (
                 <>
                   <div className="flex justify-between text-[10px] pt-1">
@@ -562,14 +708,18 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
 
             <div className="pt-3 flex gap-2 no-print">
               <button
-                onClick={() => window.print()}
-                className="flex-1 py-1.5 bg-slate-900 text-white text-xs font-bold rounded flex items-center justify-center gap-1"
+                onClick={() => {
+                  const thermalText = `${activeTenant.name}\nRECEIPT: ${completedSaleReceipt.receiptNumber}\nTOTAL: KSh ${(completedSaleReceipt.grandTotalCents/100).toFixed(2)}\nASANTE SANA!`;
+                  sendEscPosBytes(thermalText);
+                }}
+                className="flex-1 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md"
               >
-                <Printer className="w-3.5 h-3.5" /> Print
+                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                {btConnected ? 'Print to BT Thermal Printer' : 'Print Receipt'}
               </button>
               <button
                 onClick={() => setCompletedSaleReceipt(null)}
-                className="py-1.5 px-3 bg-slate-200 text-slate-900 text-xs font-semibold rounded"
+                className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs font-bold rounded-xl"
               >
                 Done
               </button>
