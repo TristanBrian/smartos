@@ -21,7 +21,8 @@ export const INITIAL_TENANTS = [
     status: "ACTIVE",
     subscriptionPeriodMonths: 3,
     licenseExpiryDate: "2026-12-24",
-    licenseToken: "LIC-LITE-9812A-2026-12-24"
+    licenseToken: "LIC-LITE-9812A-2026-12-24",
+    serialKey: "SN-LITE-9812-2026"
   },
   {
     id: "t_pharmacy_nrb",
@@ -43,7 +44,8 @@ export const INITIAL_TENANTS = [
     status: "ACTIVE",
     subscriptionPeriodMonths: 12,
     licenseExpiryDate: "2027-09-24",
-    licenseToken: "LIC-MAX-4412B-2027-09-24"
+    licenseToken: "LIC-MAX-4412B-2027-09-24",
+    serialKey: "SN-MAX-4412-2027"
   }
 ];
 

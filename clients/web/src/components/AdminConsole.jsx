@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus, Building2, Phone, MapPin, Check, Key, Calendar, Sparkles } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
-export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant, onAdminExtendLicenseToken }) {
+export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant, onAdminExtendLicenseToken, onToggleTenantStatus }) {
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [selectedTargetTenant, setSelectedTargetTenant] = useState(null);
   const [consentApproved, setConsentApproved] = useState(false);
@@ -185,6 +185,9 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                     <div className="text-[10px] text-slate-400 mt-0.5">
                       Exp: <span className="text-emerald-400 font-mono">{t.licenseExpiryDate || '2026-12-31'}</span>
                     </div>
+                    <div className="text-[9px] text-slate-500 font-mono truncate max-w-[120px]">
+                      SN: {t.serialKey || 'SN-LITE-9812-2026'}
+                    </div>
                   </td>
                   <td className="p-3 text-right font-bold text-emerald-400">
                     KSh {SUBSCRIPTION_TIERS[t.tier]?.priceMonthlyKSh || 0}/mo
@@ -193,12 +196,29 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                     {t.isVatRegistered ? <span className="text-emerald-400 font-bold">VAT ({t.kraPin || 'OSCU'})</span> : <span className="text-slate-500">Exempt</span>}
                   </td>
                   <td className="p-3 text-center">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      t.status === 'ACTIVE' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
+                    }`}>
                       {t.status || 'ACTIVE'}
                     </span>
                   </td>
                   <td className="p-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      {t.status === 'ACTIVE' ? (
+                        <button
+                          onClick={() => onToggleTenantStatus && onToggleTenantStatus(t.id, 'DEACTIVATED')}
+                          className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[10px] font-bold rounded-lg border border-amber-500/30 flex items-center gap-1"
+                        >
+                          <Lock className="w-3 h-3" /> Deactivate Key
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onToggleTenantStatus && onToggleTenantStatus(t.id, 'ACTIVE')}
+                          className="px-2 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[10px] font-bold rounded-lg border border-emerald-500/30 flex items-center gap-1"
+                        >
+                          <CheckCircle className="w-3 h-3" /> Activate Key
+                        </button>
+                      )}
                       <button
                         onClick={() => handleOpenExtendToken(t)}
                         className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] rounded-lg border border-emerald-500/30 flex items-center gap-1 font-semibold"

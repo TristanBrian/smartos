@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingCart, Package, Smartphone, ShieldCheck, Users, BarChart3,
-  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers, UserCheck, Lock, Sparkles, User, Check, X, LogOut, KeyRound, ArrowRight
+  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers, UserCheck, Lock, Sparkles, User, Check, X, LogOut, KeyRound, ArrowRight, Building2, CreditCard
 } from 'lucide-react';
 
 import {
   INITIAL_TENANTS, INITIAL_PRODUCTS, INITIAL_LEDGER_ENTRIES,
   INITIAL_SALES, INITIAL_MPESA_TRANSACTIONS, INITIAL_ETIMS_QUEUE, INITIAL_STAFF, INITIAL_CASH_DEPOSITS,
-  TEST_USERS, ROLE_PERMISSIONS_MATRIX
+  TEST_USERS, ROLE_PERMISSIONS_MATRIX, SUBSCRIPTION_TIERS
 } from './data/mockData';
 
 import PosTerminal from './components/PosTerminal';
@@ -49,6 +49,15 @@ export default function App() {
   const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [forbidden403Modal, setForbidden403Modal] = useState(null);
+
+  // Upgrade Checkout Modal & Serial Key Activation States
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [serialKeyInput, setSerialKeyInput] = useState('');
+  const [serialKeyError, setSerialKeyError] = useState('');
+  const [stkUpgradePhone, setStkUpgradePhone] = useState('+254 722 000 111');
+  const [stkUpgradeTier, setStkUpgradeTier] = useState('PRO');
+  const [stkUpgradeMonths, setStkUpgradeMonths] = useState(1);
+  const [stkUpgradeStatus, setStkUpgradeStatus] = useState('IDLE');
 
   // Domain Data States
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
@@ -159,6 +168,11 @@ export default function App() {
     setUsernameError('');
     setPasswordError('');
 
+    // Ensure store workspace is set according to user's assigned shopId (non-super admins)
+    if (targetUser.role !== 'SUPER_ADMIN' && targetUser.shopId && targetUser.shopId !== 'all') {
+      setActiveTenantId(targetUser.shopId);
+    }
+
     // Dynamic Persona Routing: Route directly to persona's primary dashboard view
     let primaryTab = 'POS';
     if (targetUser.role === 'SUPER_ADMIN') {
@@ -193,6 +207,52 @@ export default function App() {
       return;
     }
     setActiveTab(tabId);
+  };
+
+  // Handlers for Serial Keys & Admin Deactivation Control
+  const handleToggleTenantStatus = (tenantId, newStatus) => {
+    setTenants(prev => prev.map(t => {
+      if (t.id === tenantId) {
+        const nextStatus = newStatus || (t.status === 'ACTIVE' ? 'DEACTIVATED' : 'ACTIVE');
+        return { ...t, status: nextStatus };
+      }
+      return t;
+    }));
+    showToast(`Tenant ${tenantId} Serial Key status updated to ${newStatus || 'TOGGLED'}!`, newStatus === 'ACTIVE' ? 'success' : 'warning');
+  };
+
+  const handleActivateSerialKey = (keyString, tenantId = activeTenantId) => {
+    setSerialKeyError('');
+    const key = keyString.trim().toUpperCase();
+    if (!key) {
+      setSerialKeyError('Please enter a valid Serial Key.');
+      return;
+    }
+    if (key.length < 8) {
+      setSerialKeyError('Invalid Serial Key format (minimum 8 characters required).');
+      return;
+    }
+
+    const expiryObj = new Date();
+    expiryObj.setDate(expiryObj.getDate() + 30);
+    const expiryStr = expiryObj.toISOString().split('T')[0];
+    const newToken = `LIC-SERIAL-${key.slice(-4)}-${expiryStr}`;
+
+    setTenants(prev => prev.map(t => {
+      if (t.id === tenantId) {
+        return {
+          ...t,
+          serialKey: key,
+          status: 'ACTIVE',
+          licenseExpiryDate: expiryStr,
+          licenseToken: newToken
+        };
+      }
+      return t;
+    }));
+
+    setSerialKeyInput('');
+    showToast(`Serial Key '${key}' verified & activated! Platform access restored until ${expiryStr}.`, 'success');
   };
 
   // Handlers for POS Sales Finalization
@@ -422,7 +482,8 @@ export default function App() {
       kraPin: newTenantData.kraPin || null,
       mpesaPaybill: newTenantData.mpesaPaybill || '123456',
       status: 'ACTIVE',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      serialKey: `SN-${newTenantData.tier || 'LITE'}-${Math.floor(1000 + Math.random() * 9000)}-2026`
     };
 
     setTenants(prev => [...prev, newTenant]);
@@ -532,6 +593,113 @@ export default function App() {
     );
   }
 
+  // Deactivated / Expired Serial Key Lock Screen Guard (For Non-SUPER_ADMIN)
+  if (activeTenant.status !== 'ACTIVE' && currentUser.role !== 'SUPER_ADMIN') {
+    return (
+      <div className="min-h-screen bg-[#0B0F17] flex items-center justify-center p-4">
+        <div className="glass-panel max-w-lg w-full p-8 rounded-3xl border border-rose-500/50 space-y-6 shadow-2xl text-center">
+          <div className="w-16 h-16 rounded-full bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 mx-auto">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div>
+            <span className="px-3 py-1 bg-rose-500/20 text-rose-300 font-mono text-xs font-bold rounded-full border border-rose-500/30">
+              SERIAL KEY DEACTIVATED / UNPAID SUBSCRIPTION
+            </span>
+            <h2 className="font-display font-extrabold text-2xl text-slate-100 tracking-tight mt-3">
+              Workspace Access Locked
+            </h2>
+            <p className="text-xs text-slate-400 mt-2">
+              Platform access for <strong className="text-slate-200">{activeTenant.name}</strong> has been suspended because the serial key was deactivated by Platform Admin or has expired.
+            </p>
+          </div>
+
+          {/* Serial Key Activation Form */}
+          <div className="bg-[#121824] p-4 rounded-2xl border border-[#2A364F] text-left space-y-3">
+            <label className="block text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <KeyRound className="w-4 h-4 text-emerald-400" /> Enter Authorized Serial Key
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={serialKeyInput}
+                onChange={(e) => { setSerialKeyInput(e.target.value); setSerialKeyError(''); }}
+                placeholder="e.g. SN-LITE-9812-2026"
+                className="flex-1 bg-[#0B0F17] border border-[#2A364F] rounded-xl px-3.5 py-2 text-xs font-mono text-slate-100 uppercase focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={() => handleActivateSerialKey(serialKeyInput)}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold rounded-xl transition-all shadow-md shadow-emerald-500/20"
+              >
+                Activate Key
+              </button>
+            </div>
+            {serialKeyError && (
+              <div className="text-[11px] text-rose-400 font-medium">⚠️ {serialKeyError}</div>
+            )}
+          </div>
+
+          {/* Instant M-Pesa STK Push Renewal */}
+          <div className="bg-[#121824] p-4 rounded-2xl border border-[#2A364F] text-left space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                <Smartphone className="w-4 h-4 text-emerald-400" /> Instant M-Pesa STK Push Renewal
+              </span>
+              <span className="text-[10px] text-emerald-400 font-mono">Instant Unlock</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {['PRO', 'MAX', 'ENTERPRISE'].map(tKey => (
+                <button
+                  key={tKey}
+                  onClick={() => setStkUpgradeTier(tKey)}
+                  className={`p-2 rounded-xl border text-center text-xs transition-all ${
+                    stkUpgradeTier === tKey ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold' : 'bg-[#0B0F17] border-[#2A364F] text-slate-400'
+                  }`}
+                >
+                  <div>{tKey}</div>
+                  <div className="text-[10px] text-slate-400">KSh {SUBSCRIPTION_TIERS[tKey]?.priceMonthlyKSh}/mo</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={stkUpgradePhone}
+                onChange={(e) => setStkUpgradePhone(e.target.value)}
+                placeholder="+254 722 000 111"
+                className="flex-1 bg-[#0B0F17] border border-[#2A364F] rounded-xl px-3.5 py-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={() => {
+                  setStkUpgradeStatus('PUSHING');
+                  setTimeout(() => {
+                    handleUpdateTenantTier(stkUpgradeTier, 1, stkUpgradePhone);
+                    setStkUpgradeStatus('IDLE');
+                  }, 1500);
+                }}
+                disabled={stkUpgradeStatus === 'PUSHING'}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold rounded-xl transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {stkUpgradeStatus === 'PUSHING' ? 'Pushing STK...' : 'Pay & Reactivate'}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={handleLogout}
+              className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+            >
+              <LogOut className="w-4 h-4" /> Switch Account / Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0B0F17]">
       {/* Top Header Navbar */}
@@ -549,21 +717,34 @@ export default function App() {
 
             <div className="h-5 w-px bg-slate-800 hidden sm:block" />
 
-            {/* Active Workspace Selector */}
-            <div className="relative group">
-              <select
-                value={activeTenantId}
-                onChange={(e) => setActiveTenantId(e.target.value)}
-                className="bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-1.5 text-xs text-slate-200 font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer appearance-none pr-8"
-              >
-                {tenants.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.county}) — {t.tier} Tier
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+            {/* Active Workspace Selector Guard: Only SUPER_ADMIN can switch workspaces; non-admins get static store badge + Upgrade button */}
+            {currentUser.role === 'SUPER_ADMIN' ? (
+              <div className="relative group">
+                <select
+                  value={activeTenantId}
+                  onChange={(e) => setActiveTenantId(e.target.value)}
+                  className="bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-1.5 text-xs text-slate-200 font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer appearance-none pr-8"
+                >
+                  {tenants.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.county}) — {t.tier} Tier
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-1.5 text-xs text-slate-200 font-semibold">
+                <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{activeTenant.name} ({activeTenant.county}) — <strong className="text-emerald-400">{activeTenant.tier} Tier</strong></span>
+                <button
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="ml-2 px-2 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-[10px] font-extrabold rounded-lg flex items-center gap-1 transition-all"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-400" /> Upgrade
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -739,9 +920,113 @@ export default function App() {
             onUpdateTenantTier={handleUpdateTenantTier}
             onOnboardTenant={handleOnboardTenant}
             onAdminExtendLicenseToken={handleAdminExtendLicenseToken}
+            onToggleTenantStatus={handleToggleTenantStatus}
           />
         )}
       </main>
+
+      {/* Upgrade Checkout Modal for Self-Service Subscription Upgrade */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <Sparkles className="w-5 h-5 text-emerald-400" /> Upgrade Store Subscription Tier
+              </h3>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F]">
+                <span className="text-slate-400">Current Shop Plan:</span>
+                <div className="font-bold text-slate-100 text-sm flex items-center gap-2 mt-0.5">
+                  {activeTenant.name} — <span className="text-emerald-400">{activeTenant.tier} Tier</span>
+                  <span className="text-[10px] text-slate-400 font-mono">SN: {activeTenant.serialKey || 'SN-LITE-9812'}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Select Upgrade Tier</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['PRO', 'MAX', 'ENTERPRISE'].map(tKey => (
+                    <button
+                      key={tKey}
+                      onClick={() => setStkUpgradeTier(tKey)}
+                      className={`p-3 rounded-xl border text-left transition-all ${
+                        stkUpgradeTier === tKey ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-bold' : 'bg-[#121824] border-[#2A364F] text-slate-400'
+                      }`}
+                    >
+                      <div className="font-bold text-slate-100">{tKey}</div>
+                      <div className="text-emerald-400 font-display mt-0.5">KSh {SUBSCRIPTION_TIERS[tKey]?.priceMonthlyKSh}/mo</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Duration Period</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[1, 3, 12].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setStkUpgradeMonths(m)}
+                      className={`p-2 rounded-xl border text-center transition-all ${
+                        stkUpgradeMonths === m ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold' : 'bg-[#121824] border-[#2A364F] text-slate-400'
+                      }`}
+                    >
+                      {m} Month{m > 1 ? 's' : ''}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex justify-between items-center">
+                <span className="text-slate-300 font-semibold">Total Payable Amount:</span>
+                <span className="text-base font-extrabold text-emerald-400 font-display">
+                  KSh {((SUBSCRIPTION_TIERS[stkUpgradeTier]?.priceMonthlyKSh || 0) * stkUpgradeMonths).toLocaleString()}
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">M-Pesa Mobile Number *</label>
+                <input
+                  type="text"
+                  value={stkUpgradePhone}
+                  onChange={(e) => setStkUpgradePhone(e.target.value)}
+                  placeholder="+254 722 000 111"
+                  className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {stkUpgradeStatus === 'PUSHING' && (
+                <div className="p-3 bg-amber-500/20 border border-amber-500/40 rounded-xl text-amber-300 text-xs text-center font-medium animate-pulse flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Pushing M-Pesa STK prompt to {stkUpgradePhone}...
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setStkUpgradeStatus('PUSHING');
+                  setTimeout(() => {
+                    handleUpdateTenantTier(stkUpgradeTier, stkUpgradeMonths, stkUpgradePhone);
+                    setStkUpgradeStatus('IDLE');
+                    setShowUpgradeModal(false);
+                  }, 1500);
+                }}
+                disabled={stkUpgradeStatus === 'PUSHING'}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+              >
+                Pay via M-Pesa STK Push <CreditCard className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 403 Forbidden Access Denied Modal */}
       {forbidden403Modal && (
