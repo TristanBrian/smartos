@@ -144,38 +144,25 @@ class _MainMobileDashboardState extends State<MainMobileDashboard> {
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Or Demo Sign In:',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                    'Demo Accounts Quick-Fill:',
+                    style: TextStyle(color: Colors.grey, fontSize: 11),
                   ),
-                  const SizedBox(height: 12),
-                  ...TestUser.testPersonas.map((user) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: OutlinedButton(
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    alignment: WrapAlignment.center,
+                    children: TestUser.testPersonas.map((user) => ActionChip(
+                      backgroundColor: const Color(0xFF121824),
+                      side: const BorderSide(color: Color(0xFF2A364F)),
+                      avatar: Text(user.avatar, style: const TextStyle(fontSize: 12)),
+                      label: Text(
+                        '${user.username} (${user.role})',
+                        style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
                       onPressed: () => _handleLogin(user),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF2A364F)),
-                        backgroundColor: const Color(0xFF121824),
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(user.avatar, style: const TextStyle(fontSize: 18)),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(user.username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                                Text(user.roleLabel, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                              ],
-                            ),
-                          ),
-                          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF10B981)),
-                        ],
-                      ),
-                    ),
-                  )),
+                    )).toList(),
+                  ),
                 ],
               ),
             ),

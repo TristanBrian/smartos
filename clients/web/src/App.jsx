@@ -387,28 +387,27 @@ export default function App() {
             </button>
           </form>
 
-          {/* Quick Demo Account Selector */}
-          <div className="pt-4 border-t border-[#2A364F] space-y-2">
-            <div className="text-[11px] text-slate-400 font-semibold text-center">
-              Or Sign In via 1-Click Demo Accounts:
+          {/* Quick Demo Account Quick-Fill Bar */}
+          <div className="pt-4 border-t border-[#2A364F] space-y-2 text-center">
+            <div className="text-[11px] text-slate-400 font-semibold">
+              Demo Test Accounts Quick-Fill:
             </div>
-            <div className="space-y-2">
-              {TEST_USERS.map(user => (
+            <div className="flex justify-center gap-2">
+              {[
+                { username: 'test1admin', label: '👑 test1admin (Admin)' },
+                { username: 'test1user', label: '🏢 test1user (Owner)' },
+                { username: 'test2user', label: '💳 test2user (Cashier)' }
+              ].map(item => (
                 <button
-                  key={user.id}
-                  onClick={() => handlePerformLogin(user)}
-                  className="w-full p-2.5 bg-[#121824] hover:bg-slate-800 rounded-xl border border-[#2A364F] flex items-center justify-between text-xs transition-all"
+                  key={item.username}
+                  type="button"
+                  onClick={() => {
+                    setLoginUsername(item.username);
+                    handlePerformLogin(TEST_USERS.find(u => u.username === item.username));
+                  }}
+                  className="px-2.5 py-1 bg-[#121824] hover:bg-slate-800 text-slate-300 hover:text-emerald-400 text-[11px] font-mono rounded-lg border border-[#2A364F] transition-all"
                 >
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base">{user.avatar}</span>
-                    <div className="text-left">
-                      <div className="font-bold text-slate-100">{user.username}</div>
-                      <div className="text-[10px] text-slate-400">{user.description}</div>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${user.badgeColor}`}>
-                    {user.role}
-                  </span>
+                  {item.label}
                 </button>
               ))}
             </div>
