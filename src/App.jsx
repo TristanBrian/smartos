@@ -6,7 +6,7 @@ import {
 
 import {
   INITIAL_TENANTS, INITIAL_PRODUCTS, INITIAL_LEDGER_ENTRIES,
-  INITIAL_SALES, INITIAL_MPESA_TRANSACTIONS, INITIAL_ETIMS_QUEUE, INITIAL_STAFF
+  INITIAL_SALES, INITIAL_MPESA_TRANSACTIONS, INITIAL_ETIMS_QUEUE, INITIAL_STAFF, INITIAL_CASH_DEPOSITS
 } from './data/mockData';
 
 import PosTerminal from './components/PosTerminal';
@@ -31,6 +31,7 @@ export default function App() {
   const [ledgerEntries, setLedgerEntries] = useState(INITIAL_LEDGER_ENTRIES);
   const [sales, setSales] = useState(INITIAL_SALES);
   const [mpesaTransactions, setMpesaTransactions] = useState(INITIAL_MPESA_TRANSACTIONS);
+  const [cashDeposits, setCashDeposits] = useState(INITIAL_CASH_DEPOSITS);
   const [etimsQueue, setEtimsQueue] = useState(INITIAL_ETIMS_QUEUE);
   const [staffList, setStaffList] = useState(INITIAL_STAFF);
 
@@ -167,6 +168,11 @@ export default function App() {
       return t;
     }));
     showToast(`Payment ${transId} matched to Receipt ${receiptNo}`, 'success');
+  };
+
+  const handleLogCashDeposit = (newDeposit) => {
+    setCashDeposits(prev => [newDeposit, ...prev]);
+    showToast(`Cash Deposit ${newDeposit.refNumber} (KSh ${(newDeposit.amountCents / 100).toFixed(2)}) recorded!`, 'success');
   };
 
   const handleRetryEtims = (etimsId) => {
@@ -346,7 +352,9 @@ export default function App() {
           <MpesaReconciler
             mpesaTransactions={mpesaTransactions}
             sales={sales}
+            cashDeposits={cashDeposits}
             onMatchPayment={handleMatchPayment}
+            onLogCashDeposit={handleLogCashDeposit}
             activeTenant={activeTenant}
           />
         )}

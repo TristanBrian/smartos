@@ -303,9 +303,33 @@ export const INITIAL_STAFF = [
   }
 ];
 
+export const INITIAL_CASH_DEPOSITS = [
+  {
+    id: "cdep_001",
+    refNumber: "DEP-20260923-01",
+    timestamp: "2026-09-23T08:00:00Z",
+    depositorName: "Grace Wanjiru",
+    type: "TILL_FLOAT",
+    amountCents: 500000, // KSh 5,000.00
+    notes: "Morning Till Opening Float",
+    status: "VERIFIED"
+  },
+  {
+    id: "cdep_002",
+    refNumber: "DEP-20260923-02",
+    timestamp: "2026-09-23T14:30:00Z",
+    depositorName: "Kevin Omondi",
+    type: "BANK_DEPOSIT",
+    amountCents: 1500000, // KSh 15,000.00
+    notes: "Midday Cash Drawer Banking (KCB Bank)",
+    status: "VERIFIED"
+  }
+];
+
 export const SUBSCRIPTION_TIERS = {
   FREE: { name: "Free", priceMonthlyKSh: 0, maxLocations: 1, maxProducts: 50, maxStaff: 1, eTimsIncluded: false },
   LITE: { name: "Biashara Lite", priceMonthlyKSh: 299, maxLocations: 1, maxProducts: 500, maxStaff: 2, eTimsIncluded: true },
   PRO: { name: "Biashara Pro", priceMonthlyKSh: 599, maxLocations: 3, maxProducts: "Unlimited", maxStaff: 10, eTimsIncluded: true },
   MAX: { name: "Biashara Max", priceMonthlyKSh: 1299, maxLocations: "Unlimited", maxProducts: "Unlimited", maxStaff: "Unlimited", eTimsIncluded: true }
 };
+

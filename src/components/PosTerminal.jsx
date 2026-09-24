@@ -15,7 +15,8 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('MPESA_STK');
   const [customerPhone, setCustomerPhone] = useState('0722000111');
-  const [stkPushStep, setStkPushStep] = useState('IDLE'); // IDLE, SENDING, WAITING_PIN, SUCCESS, FAILED
+  const [cashTenderedKSh, setCashTenderedKSh] = useState('');
+  const [stkPushStep, setStkPushStep] = useState('IDLE');
   
   // Receipt view modal
   const [completedSaleReceipt, setCompletedSaleReceipt] = useState(null);
@@ -69,16 +70,17 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const discountCents = Math.round((rawSubtotalCents * discountPercent) / 100);
   const subtotalAfterDiscountCents = rawSubtotalCents - discountCents;
   
-  // Tax calculations (16% VAT for applicable items)
   const taxCents = cart.reduce((sum, item) => {
     if (item.vatRate > 0) {
       const itemSubtotal = (item.sellPriceCents * item.qty) * (1 - discountPercent / 100);
-      return sum + Math.round(itemSubtotal * 0.16 / 1.16); // Tax inclusive
+      return sum + Math.round(itemSubtotal * 0.16 / 1.16);
     }
     return sum;
   }, 0);
 
   const grandTotalCents = subtotalAfterDiscountCents;
+  const cashTenderedCents = cashTenderedKSh ? Math.round(parseFloat(cashTenderedKSh) * 100) : grandTotalCents;
+  const changeGivenCents = Math.max(0, cashTenderedCents - grandTotalCents);
 
   const handleApplyDiscount = (pct) => {
     if (pct > 10 && !managerApproved) {
@@ -90,7 +92,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   };
 
   const handleVerifyManagerPin = () => {
-    if (pinInput === '1234') { // Mock manager PIN
+    if (pinInput === '1234') {
       setManagerApproved(true);
       setDiscountPercent(pendingDiscount);
       setManagerPinModal(false);
@@ -104,6 +106,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
     if (cart.length === 0) return;
     setPaymentModalOpen(true);
     setStkPushStep('IDLE');
+    setCashTenderedKSh((grandTotalCents / 100).toString());
   };
 
   const handleProcessPayment = () => {
@@ -114,8 +117,8 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         setTimeout(() => {
           setStkPushStep('SUCCESS');
           finalizeSaleRecord('MPESA_STK', 'COMPLETED');
-        }, 2500);
-      }, 1200);
+        }, 2200);
+      }, 1000);
     } else {
       finalizeSaleRecord(paymentMethod, 'COMPLETED');
     }
@@ -140,6 +143,8 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
       discountCents: discountCents,
       taxCents: taxCents,
       grandTotalCents: grandTotalCents,
+      cashTenderedCents: method === 'CASH' ? cashTenderedCents : grandTotalCents,
+      changeGivenCents: method === 'CASH' ? changeGivenCents : 0,
       paymentMethod: method,
       paymentStatus: status,
       mpesaTransId: method === 'MPESA_STK' ? `QEH${Math.floor(1000000 + Math.random() * 9000000)}` : null,
@@ -157,9 +162,8 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-140px)]">
-      {/* Product Catalog & Selector (Left 7 Cols) */}
+      {/* Product Catalog & Selector */}
       <div className="lg:col-span-7 flex flex-col glass-panel rounded-2xl p-5 overflow-hidden">
-        {/* Top Search & Filter Bar */}
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -188,7 +192,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           </div>
         </div>
 
-        {/* Product Grid */}
         <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 gap-3">
           {filteredProducts.map(product => {
             const isLow = product.stockOnHand <= product.reorderThreshold;
@@ -232,7 +235,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         </div>
       </div>
 
-      {/* Cart & Checkout Panel (Right 5 Cols) */}
+      {/* Cart & Checkout Panel */}
       <div className="lg:col-span-5 flex flex-col glass-panel rounded-2xl p-5 border border-emerald-500/20 shadow-2xl">
         <div className="flex items-center justify-between pb-3 border-b border-[#2A364F]">
           <div className="flex items-center gap-2">
@@ -244,7 +247,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           </span>
         </div>
 
-        {/* Cart Item List */}
         <div className="flex-1 overflow-y-auto my-3 pr-1 space-y-2.5">
           {cart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-2 py-10">
@@ -261,7 +263,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                   </div>
                 </div>
 
-                {/* Qty Controls */}
                 <div className="flex items-center gap-2 bg-[#1A2332] px-2 py-1 rounded-lg border border-[#2A364F]">
                   <button onClick={() => updateQty(item.id, -1)} className="p-1 text-slate-400 hover:text-white">
                     <Minus className="w-3.5 h-3.5" />
@@ -285,9 +286,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           )}
         </div>
 
-        {/* Discount & Totals Summary */}
         <div className="pt-3 border-t border-[#2A364F] space-y-2 text-sm">
-          {/* Discount Selector */}
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-400">Discount Cap:</span>
             <div className="flex gap-1">
@@ -319,13 +318,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
             </div>
           )}
 
-          {activeTenant.isVatRegistered && (
-            <div className="flex justify-between text-slate-400 text-xs">
-              <span>Estimated VAT (16% incl.):</span>
-              <span>KSh {(taxCents / 100).toLocaleString('en-KE')}</span>
-            </div>
-          )}
-
           <div className="flex justify-between items-center text-lg font-bold text-slate-100 pt-2 border-t border-slate-700/60">
             <span>Grand Total:</span>
             <span className="text-emerald-400 font-display">
@@ -333,7 +325,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
             </span>
           </div>
 
-          {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-2 pt-2">
             <button
               onClick={() => setCart([])}
@@ -353,45 +344,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         </div>
       </div>
 
-      {/* Manager PIN Authorization Modal */}
-      {managerPinModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel max-w-sm w-full p-6 rounded-2xl border border-amber-500/30 text-center space-y-4">
-            <div className="w-12 h-12 bg-amber-500/20 text-amber-400 rounded-full flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-slate-100">Manager Authorization Required</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Discounts above 10% ({pendingDiscount}%) exceed the cashier cap (BRULE-06) and require Manager approval.
-              </p>
-            </div>
-            <input
-              type="password"
-              placeholder="Enter Manager PIN (Default: 1234)"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              className="w-full text-center tracking-widest text-lg font-mono bg-[#121824] border border-[#2A364F] py-2.5 rounded-xl text-slate-100 focus:outline-none focus:border-amber-500"
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setManagerPinModal(false)}
-                className="py-2.5 bg-slate-800 text-slate-300 text-xs font-medium rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleVerifyManagerPin}
-                className="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl"
-              >
-                Approve Discount
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Payment Selection & M-Pesa STK Modal */}
+      {/* Payment Selection & Cash Deposit / Change Calculator Modal */}
       {paymentModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/30 space-y-5">
@@ -421,7 +374,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                 }`}
               >
                 <DollarSign className="w-5 h-5" />
-                <span className="text-xs">Cash</span>
+                <span className="text-xs">Cash Deposit</span>
               </button>
               <button
                 onClick={() => setPaymentMethod('MPESA_C2B')}
@@ -436,6 +389,28 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
               </button>
             </div>
 
+            {/* Cash Deposit Calculator */}
+            {paymentMethod === 'CASH' && (
+              <div className="space-y-3 bg-[#121824] p-4 rounded-xl border border-[#2A364F]">
+                <div>
+                  <label className="text-xs text-slate-300 block mb-1">Cash Tendered by Customer (KSh):</label>
+                  <input
+                    type="number" step="10"
+                    value={cashTenderedKSh}
+                    onChange={(e) => setCashTenderedKSh(e.target.value)}
+                    className="w-full bg-[#1A2332] border border-[#2A364F] px-3 py-2 rounded-xl text-lg font-bold font-mono text-emerald-400 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center text-xs p-2.5 bg-[#1A2332] rounded-lg border border-[#2A364F]">
+                  <span className="text-slate-400">Change to Return:</span>
+                  <span className="text-base font-bold text-amber-400 font-mono">
+                    KSh {(changeGivenCents / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {paymentMethod === 'MPESA_STK' && (
               <div className="space-y-3 bg-[#121824] p-4 rounded-xl border border-[#2A364F]">
                 <label className="text-xs text-slate-300 block">Customer M-Pesa Phone Number:</label>
@@ -445,28 +420,6 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="w-full bg-[#1A2332] border border-[#2A364F] px-3 py-2 rounded-xl text-sm font-mono text-emerald-400 focus:outline-none focus:border-emerald-500"
                 />
-
-                {stkPushStep !== 'IDLE' && (
-                  <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-center space-y-2">
-                    {stkPushStep === 'SENDING' && (
-                      <div className="text-xs text-emerald-400 flex items-center justify-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                        Initiating Daraja STK Push to {customerPhone}...
-                      </div>
-                    )}
-                    {stkPushStep === 'WAITING_PIN' && (
-                      <div className="text-xs text-amber-300 flex items-center justify-center gap-2">
-                        <Clock className="w-4 h-4 animate-spin text-amber-400" />
-                        Prompt delivered to customer phone. Waiting for PIN...
-                      </div>
-                    )}
-                    {stkPushStep === 'SUCCESS' && (
-                      <div className="text-xs text-emerald-400 flex items-center justify-center gap-1.5 font-bold">
-                        <CheckCircle className="w-4 h-4 text-emerald-400" /> Payment Received & Reconciled!
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
@@ -488,7 +441,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         </div>
       )}
 
-      {/* Completed Thermal Receipt Preview Modal */}
+      {/* Thermal Receipt Preview Modal */}
       {completedSaleReceipt && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="max-w-xs w-full thermal-receipt p-5 rounded-sm space-y-3 text-slate-900 shadow-2xl">
@@ -531,6 +484,20 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                 <span>TOTAL PAID:</span>
                 <span>KSh {(completedSaleReceipt.grandTotalCents / 100).toFixed(2)}</span>
               </div>
+              
+              {completedSaleReceipt.paymentMethod === 'CASH' && (
+                <>
+                  <div className="flex justify-between text-[10px] pt-1">
+                    <span>CASH TENDERED:</span>
+                    <span>KSh {((completedSaleReceipt.cashTenderedCents || completedSaleReceipt.grandTotalCents) / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-[10px] font-bold text-amber-900">
+                    <span>CHANGE RETURNED:</span>
+                    <span>KSh {((completedSaleReceipt.changeGivenCents || 0) / 100).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between text-[10px] pt-1">
                 <span>METHOD:</span>
                 <span>{completedSaleReceipt.paymentMethod}</span>
