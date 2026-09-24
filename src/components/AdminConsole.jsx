@@ -81,13 +81,6 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
     }, 1500);
   };
 
-  const handleExecuteImpersonation = () => {
-    if (!consentApproved || !selectedTargetTenant) return;
-    onSwitchTenant(selectedTargetTenant.id);
-    setImpersonateModal(false);
-    setConsentApproved(false);
-  };
-
   const handleOnboardSubmit = (e) => {
     e.preventDefault();
     setOnboardError('');
