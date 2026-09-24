@@ -6,17 +6,31 @@ It consolidates four core operational primitives into one system of record:
 1. **Inventory Intelligence**: Stock levels, append-only stock ledger, low-stock threshold alerts, slow-mover (>60 days) and dead-stock (>120 days) analytics, weighted items (Kg/Litres), and auto SKU generation.
 2. **Sales & POS**: High-speed cart, hard stock oversell prevention guards, cashier discount caps (10%) with Manager PIN step-up, Web Bluetooth ESC/POS thermal printing, sequential receipt generation, offline-capable POS.
 3. **M-Pesa & Payments**: Safaricom Daraja 3.0 STK Push, phone sanitization (`2547XXXXXXXX`), C2B Paybill/Till reconciliation with 1-tap target sale receipt selection, automated idempotency, live STK status query.
-4. **Multi-Tenant Shop Onboarding & Security**: Schema-per-tenant isolation (`tenant_<slug>_<uuid>`), KRA PIN validation (`FR-TAX-01`), role-based access control (RBAC), and 3 pre-configured test user accounts.
+4. **Multi-Tenant Shop Onboarding & Security**: Schema-per-tenant isolation (`tenant_<slug>_<uuid>`), KRA PIN validation (`FR-TAX-01`), role-based access control (RBAC), dynamic persona dashboard routing, and 3 pre-configured test user accounts.
 
 ---
 
-## 👥 Pre-Configured Test User Personas
+## 👥 Pre-Configured Test User Personas & Persona Routing
 
-| Username / Identity | Assigned Role | Access Scope |
-|---|---|---|
-| **`test1admin`** | `SUPER_ADMIN` | Platform Admin. Cross-tenant observability, tenant onboarding & support impersonation. |
-| **`test1user`** | `OWNER` | Shop Admin. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports. |
-| **`test2user`** | `CASHIER` | Store Cashier. Front-desk POS checkout & M-Pesa reconciliation. Restricted from stock write-offs & store config. |
+| Username | Assigned Role | Primary Dashboard View | Access Scope & Scope |
+|---|---|---|---|
+| **`test1admin`** | `SUPER_ADMIN` | **Platform Admin** (`ADMIN`) | Full platform authority, cross-tenant observability, shop onboarding & support impersonation. |
+| **`test1user`** | `OWNER` | **POS Terminal** (`POS`) | Shop Admin. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports. |
+| **`test2user`** | `CASHIER` | **POS Terminal** (`POS`) | Store Cashier. Front-desk POS checkout & M-Pesa reconciliation. Restricted from stock write-offs & config. |
+
+When switching persona via the top navbar identity switcher, BiasharaOS automatically routes the session to the persona's designated primary dashboard view (`ADMIN` for Super Admin, `POS` for Cashier/Owner).
+
+---
+
+## 📱 Flutter Mobile Application (`clients/mobile`)
+
+The mobile client is built in Flutter (`clients/mobile`) for Android/iOS handheld POS devices and smartphones:
+- **Mobile POS Cart (`PosScreen`)**: Touch-optimized checkout cart with M-Pesa STK Push button, receipt printer triggers, and stock availability checks.
+- **Stock Ledger (`InventoryScreen`)**: Stock movement logs, low-stock alerts, and write-offs.
+- **Offline SQLite Outbox (`SyncScreen`)**: Offline persistence queue with 1-tap sync to `/api/v1/sync/push`.
+- **Mobile Role Switcher (`RoleSwitcherScreen`)**: 1-tap persona switcher (`test1admin`, `test1user`, `test2user`).
+
+See **[Mobile Application Documentation](clients/mobile/README.md)** for full Flutter build and launch commands.
 
 ---
 

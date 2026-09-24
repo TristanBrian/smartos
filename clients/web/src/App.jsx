@@ -54,20 +54,26 @@ export default function App() {
     setTimeout(() => setToastNotification(null), 4000);
   };
 
-  // RBAC Navigation Guard & User Switcher
+  // RBAC Navigation Guard & Persona Switcher with Dynamic Dashboard Routing
   const handleSwitchUser = (selectedUser) => {
     setCurrentUser(selectedUser);
     setUserSwitchModal(false);
     setForbidden403Modal(null);
 
-    const userPerms = ROLE_PERMISSIONS_MATRIX[selectedUser.role] || ROLE_PERMISSIONS_MATRIX.SUPER_ADMIN;
-    if (!userPerms.allowedTabs.includes(activeTab)) {
-      const defaultTab = userPerms.allowedTabs[0] || 'POS';
-      setActiveTab(defaultTab);
-      showToast(`Switched identity to ${selectedUser.name} (${selectedUser.roleLabel}). View set to ${defaultTab}.`, 'success');
+    // Route persona to their primary dashboard view
+    let roleDashboardTab = 'POS';
+    if (selectedUser.role === 'SUPER_ADMIN') {
+      roleDashboardTab = 'ADMIN';
+    } else if (selectedUser.role === 'STOCK_CLERK') {
+      roleDashboardTab = 'INVENTORY';
+    } else if (selectedUser.role === 'AUDITOR') {
+      roleDashboardTab = 'REPORTS';
     } else {
-      showToast(`Switched identity to ${selectedUser.name} (${selectedUser.roleLabel}).`, 'success');
+      roleDashboardTab = 'POS';
     }
+
+    setActiveTab(roleDashboardTab);
+    showToast(`Logged in as ${selectedUser.name} (${selectedUser.roleLabel}). Routed to ${roleDashboardTab} dashboard!`, 'success');
   };
 
   const handleTabClick = (tabId, tabLabel) => {
