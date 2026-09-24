@@ -883,6 +883,26 @@ export default function AdminConsole({
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setExtendModal(false)}
+                  className="py-2.5 bg-slate-800 text-slate-300 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5"
+                >
+                  <Key className="w-4 h-4" /> Issue & Extend Token
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Admin Add New Product SKU Modal */}
       {adminAddModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
