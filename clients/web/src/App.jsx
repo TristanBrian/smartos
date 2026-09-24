@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ShoppingCart, Package, Smartphone, ShieldCheck, Users, BarChart3,
-  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers, UserCheck, Lock, Sparkles, User, Check, X
+  ShieldAlert, Wifi, WifiOff, Bell, ChevronDown, CheckCircle, RefreshCw, Layers, UserCheck, Lock, Sparkles, User, Check, X, LogOut, KeyRound, ArrowRight
 } from 'lucide-react';
 
 import {
@@ -27,9 +27,12 @@ export default function App() {
 
   const activeTenant = tenants.find(t => t.id === activeTenantId) || tenants[0];
 
-  // RBAC Test User Session State
-  const [currentUser, setCurrentUser] = useState(TEST_USERS[0]); // Default: Alex Mwangi (SUPER_ADMIN)
-  const [userSwitchModal, setUserSwitchModal] = useState(false);
+  // RBAC Session & Auth State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loginUsername, setLoginUsername] = useState('test1user');
+  const [loginPassword, setLoginPassword] = useState('password123');
+  const [loginError, setLoginError] = useState('');
   const [forbidden403Modal, setForbidden403Modal] = useState(null);
 
   // Domain Data States
@@ -54,36 +57,52 @@ export default function App() {
     setTimeout(() => setToastNotification(null), 4000);
   };
 
-  // RBAC Navigation Guard & Persona Switcher with Dynamic Dashboard Routing
-  const handleSwitchUser = (selectedUser) => {
-    setCurrentUser(selectedUser);
-    setUserSwitchModal(false);
-    setForbidden403Modal(null);
-
-    // Route persona to their primary dashboard view
-    let roleDashboardTab = 'POS';
-    if (selectedUser.role === 'SUPER_ADMIN') {
-      roleDashboardTab = 'ADMIN';
-    } else if (selectedUser.role === 'STOCK_CLERK') {
-      roleDashboardTab = 'INVENTORY';
-    } else if (selectedUser.role === 'AUDITOR') {
-      roleDashboardTab = 'REPORTS';
-    } else {
-      roleDashboardTab = 'POS';
+  // Authentication & Dynamic Persona Dashboard Routing
+  const handlePerformLogin = (specificUser) => {
+    let targetUser = specificUser;
+    if (!targetUser) {
+      targetUser = TEST_USERS.find(u => u.username.toLowerCase() === loginUsername.trim().toLowerCase());
     }
 
-    setActiveTab(roleDashboardTab);
-    showToast(`Logged in as ${selectedUser.name} (${selectedUser.roleLabel}). Routed to ${roleDashboardTab} dashboard!`, 'success');
+    if (!targetUser) {
+      setLoginError(`Invalid credentials for user '${loginUsername}'. Valid demo users: test1admin, test1user, test2user.`);
+      return;
+    }
+
+    setCurrentUser(targetUser);
+    setIsLoggedIn(true);
+    setLoginError('');
+
+    // Dynamic Persona Routing: Route directly to persona's primary dashboard view
+    let primaryTab = 'POS';
+    if (targetUser.role === 'SUPER_ADMIN') {
+      primaryTab = 'ADMIN';
+    } else if (targetUser.role === 'OWNER' || targetUser.role === 'MANAGER') {
+      primaryTab = 'POS';
+    } else if (targetUser.role === 'CASHIER') {
+      primaryTab = 'POS';
+    }
+
+    setActiveTab(primaryTab);
+    showToast(`Authenticated as ${targetUser.username} (${targetUser.roleLabel}). Routed to ${primaryTab} Dashboard!`, 'success');
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setCurrentUser(null);
+    setForbidden403Modal(null);
+    showToast(`Logged out of BiasharaOS session.`, 'warning');
   };
 
   const handleTabClick = (tabId, tabLabel) => {
+    if (!currentUser) return;
     const userPerms = ROLE_PERMISSIONS_MATRIX[currentUser.role] || ROLE_PERMISSIONS_MATRIX.SUPER_ADMIN;
     if (!userPerms.allowedTabs.includes(tabId)) {
       setForbidden403Modal({
         tabId,
         tabLabel,
-        requiredRole: tabId === 'ADMIN' ? 'SUPER_ADMIN' : 'OWNER / MANAGER / STOCK_CLERK',
-        reason: `Active identity '${currentUser.name}' (${currentUser.roleLabel}) does not possess RBAC authority to access '${tabLabel}'.`
+        requiredRole: tabId === 'ADMIN' ? 'SUPER_ADMIN' : 'OWNER / MANAGER',
+        reason: `Authenticated user '${currentUser.username}' (${currentUser.roleLabel}) does not hold RBAC permissions for '${tabLabel}'.`
       });
       return;
     }
@@ -124,7 +143,7 @@ export default function App() {
         delta: -item.qty,
         runningBalance: 0,
         refDocument: saleRecord.receiptNumber,
-        actorName: saleRecord.cashierName || currentUser.name
+        actorName: saleRecord.cashierName || (currentUser ? currentUser.username : 'Cashier')
       };
       setLedgerEntries(prev => [ledgerEntry, ...prev]);
     });
@@ -181,7 +200,7 @@ export default function App() {
       delta: newProd.stockOnHand,
       runningBalance: newProd.stockOnHand,
       refDocument: 'MANUAL_ENTRY',
-      actorName: currentUser.name
+      actorName: currentUser ? currentUser.username : 'Admin'
     };
     setLedgerEntries(prev => [ledgerEntry, ...prev]);
     showToast(`Product ${newProd.name} added to catalog!`, 'success');
@@ -205,7 +224,7 @@ export default function App() {
       delta: delta,
       runningBalance: (targetProd ? targetProd.stockOnHand : 0) + delta,
       refDocument: `ADJ-${type}`,
-      actorName: currentUser.name,
+      actorName: currentUser ? currentUser.username : 'Admin',
       reason: reason
     };
     setLedgerEntries(prev => [ledgerEntry, ...prev]);
@@ -312,6 +331,93 @@ export default function App() {
     showToast(`Full tenant data export generated (BR-014)`, 'success');
   };
 
+  // Render Login Screen if not authenticated
+  if (!isLoggedIn || !currentUser) {
+    return (
+      <div className="min-h-screen bg-[#0B0F17] flex items-center justify-center p-4">
+        <div className="glass-panel max-w-md w-full p-8 rounded-3xl border border-emerald-500/30 space-y-6 shadow-2xl">
+          <div className="text-center space-y-2">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-extrabold text-slate-950 text-2xl shadow-lg shadow-emerald-500/20 mx-auto">
+              B
+            </div>
+            <h1 className="font-display font-extrabold text-2xl text-slate-100 tracking-tight">
+              Biashara<span className="text-emerald-400">OS</span>
+            </h1>
+            <p className="text-xs text-slate-400">
+              Kenyan MSME Business & Inventory Intelligence Platform
+            </p>
+          </div>
+
+          {loginError && (
+            <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium">
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={(e) => { e.preventDefault(); handlePerformLogin(); }} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Username / Account ID</label>
+              <input
+                type="text"
+                required
+                value={loginUsername}
+                onChange={(e) => setLoginUsername(e.target.value)}
+                placeholder="test1user"
+                className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <input
+                type="password"
+                required
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all"
+            >
+              Sign In to Store Workspace <ArrowRight className="w-4 h-4" />
+            </button>
+          </form>
+
+          {/* Quick Demo Account Selector */}
+          <div className="pt-4 border-t border-[#2A364F] space-y-2">
+            <div className="text-[11px] text-slate-400 font-semibold text-center">
+              Or Sign In via 1-Click Demo Accounts:
+            </div>
+            <div className="space-y-2">
+              {TEST_USERS.map(user => (
+                <button
+                  key={user.id}
+                  onClick={() => handlePerformLogin(user)}
+                  className="w-full p-2.5 bg-[#121824] hover:bg-slate-800 rounded-xl border border-[#2A364F] flex items-center justify-between text-xs transition-all"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">{user.avatar}</span>
+                    <div className="text-left">
+                      <div className="font-bold text-slate-100">{user.username}</div>
+                      <div className="text-[10px] text-slate-400">{user.description}</div>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${user.badgeColor}`}>
+                    {user.role}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0B0F17]">
       {/* Top Header Navbar */}
@@ -347,22 +453,25 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Quick RBAC Test User Switcher Pill */}
-            <button
-              onClick={() => setUserSwitchModal(true)}
-              className="flex items-center gap-2 bg-[#121824] hover:bg-slate-800 border border-[#2A364F] px-3 py-1.5 rounded-xl text-xs transition-all"
-            >
+            {/* Logged In User Profile Pill */}
+            <div className="flex items-center gap-2 bg-[#121824] border border-[#2A364F] px-3 py-1.5 rounded-xl text-xs">
               <span className="text-base">{currentUser.avatar}</span>
               <div className="text-left hidden sm:block">
-                <div className="font-bold text-slate-100 flex items-center gap-1 leading-none">
-                  {currentUser.name}
+                <div className="font-bold text-slate-100 flex items-center gap-1.5 leading-none">
+                  {currentUser.username}
                   <span className={`px-1.5 py-0.2 text-[9px] font-bold rounded border ${currentUser.badgeColor}`}>
                     {currentUser.role}
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">{currentUser.roleLabel}</div>
               </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-1" />
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold text-xs rounded-xl flex items-center gap-1 transition-all"
+            >
+              <LogOut className="w-3.5 h-3.5" /> Log Out
             </button>
 
             <button
@@ -385,11 +494,6 @@ export default function App() {
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Sync ({offlineOutbox.length})
               </button>
             )}
-
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 text-[11px] text-slate-300 border border-slate-700">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>eTIMS: <strong>{activeTenant.isVatRegistered ? 'OSCU Active' : 'Exempt'}</strong></span>
-            </div>
           </div>
         </div>
       </header>
@@ -494,7 +598,6 @@ export default function App() {
             onAddStaff={handleAddStaff}
             activeTenant={activeTenant}
             currentUser={currentUser}
-            onSwitchUser={handleSwitchUser}
           />
         )}
 
@@ -525,83 +628,6 @@ export default function App() {
         )}
       </main>
 
-      {/* User Switcher Persona Modal */}
-      {userSwitchModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel max-w-2xl w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-[#2A364F] pb-3">
-              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
-                <Sparkles className="w-5 h-5 text-emerald-400" /> Select Active Test User Identity (6 Personas)
-              </h3>
-              <button onClick={() => setUserSwitchModal(false)} className="text-slate-400 hover:text-slate-200 text-sm font-bold">
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-400">
-              Switching active identity updates your session permissions live. Test how different roles (Cashier, Stock Clerk, Manager, Owner, Auditor, Super Admin) interact with BiasharaOS.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {TEST_USERS.map(user => {
-                const isActive = currentUser.id === user.id;
-                const userPerms = ROLE_PERMISSIONS_MATRIX[user.role];
-                return (
-                  <div
-                    key={user.id}
-                    className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
-                      isActive
-                        ? 'bg-emerald-500/15 border-emerald-500 ring-1 ring-emerald-500'
-                        : 'bg-[#121824] border-[#2A364F] hover:border-slate-600'
-                    }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{user.avatar}</span>
-                          <div>
-                            <div className="font-bold text-slate-100 text-xs">{user.name}</div>
-                            <div className="text-[11px] text-slate-400">{user.email}</div>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${user.badgeColor}`}>
-                          {user.role}
-                        </span>
-                      </div>
-
-                      <p className="text-[11px] text-slate-300 leading-tight mb-2">
-                        {user.description}
-                      </p>
-
-                      <div className="text-[10px] text-slate-400 flex flex-wrap gap-1 mt-2">
-                        <span className="font-semibold text-slate-300">Allowed Views:</span>
-                        {userPerms.allowedTabs.map(t => (
-                          <span key={t} className="px-1.5 py-0.2 bg-slate-800 text-emerald-300 rounded font-mono">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => handleSwitchUser(user)}
-                      disabled={isActive}
-                      className={`w-full mt-3 py-2 text-xs font-bold rounded-xl transition-all ${
-                        isActive
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-default'
-                          : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20'
-                      }`}
-                    >
-                      {isActive ? '✓ Active Session' : 'Switch Identity'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 403 Forbidden Access Denied Modal */}
       {forbidden403Modal && (
         <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
@@ -619,24 +645,15 @@ export default function App() {
 
             <div className="bg-rose-950/40 border border-rose-500/30 p-3 rounded-xl text-xs text-left text-rose-300 space-y-1">
               <div className="font-bold text-rose-200">Required Role Authority:</div>
-              <div>Tab <strong>'{forbidden403Modal.tabLabel}'</strong> requires role authority: <code>{forbidden403Modal.requiredRole}</code>. Your active identity <strong>'{currentUser.name}'</strong> is assigned role <code>{currentUser.role}</code>.</div>
+              <div>Tab <strong>'{forbidden403Modal.tabLabel}'</strong> requires role: <code>{forbidden403Modal.requiredRole}</code>. Your active session <strong>'{currentUser.username}'</strong> has role <code>{currentUser.role}</code>.</div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="pt-2">
               <button
                 onClick={() => setForbidden403Modal(null)}
-                className="py-2.5 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl"
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-xl"
               >
                 Close Alert
-              </button>
-              <button
-                onClick={() => {
-                  setForbidden403Modal(null);
-                  setUserSwitchModal(true);
-                }}
-                className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20"
-              >
-                Switch User Identity
               </button>
             </div>
           </div>

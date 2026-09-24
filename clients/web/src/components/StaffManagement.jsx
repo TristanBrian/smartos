@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Users, UserPlus, Shield, Award, CheckCircle2, Lock, UserCheck, Key, ShieldAlert, Sparkles, Check, X } from 'lucide-react';
+import { Users, UserPlus, Shield, Award, CheckCircle2, Lock, UserCheck, Key, ShieldAlert, Check, X } from 'lucide-react';
 import { TEST_USERS, ROLE_PERMISSIONS_MATRIX } from '../data/mockData';
 
-export default function StaffManagement({ staffList, onAddStaff, activeTenant, currentUser, onSwitchUser }) {
+export default function StaffManagement({ staffList, onAddStaff, activeTenant, currentUser }) {
   const [addModal, setAddModal] = useState(false);
   const [activeTabSub, setActiveTabSub] = useState('STAFF'); // 'STAFF' | 'PERMISSIONS'
   const [newStaff, setNewStaff] = useState({ name: '', phone: '', role: 'CASHIER' });
@@ -44,7 +44,7 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
             <Users className="w-6 h-6 text-emerald-400" /> Enterprise Staff & Role-Based Access Control (RBAC)
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Manage store team members, switch test user personas, and enforce granular role permissions.
+            Manage store team members, view sales commissions, and inspect RBAC role permissions.
           </p>
         </div>
 
@@ -77,48 +77,6 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
         </div>
       </div>
 
-      {/* 6 Pre-configured Test Persona Switcher Bar */}
-      <div className="glass-panel p-4 rounded-2xl border border-emerald-500/30 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5 font-display">
-            <Sparkles className="w-4 h-4 text-emerald-400" /> Instant Test User Identity Switcher (6 Pre-configured Personas)
-          </h3>
-          <span className="text-[11px] text-slate-400">Current Identity: <strong className="text-emerald-400">{currentUser?.name || 'Admin'} ({currentUser?.roleLabel || 'SUPER_ADMIN'})</strong></span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {TEST_USERS.map(user => {
-            const isActive = currentUser?.id === user.id;
-            return (
-              <button
-                key={user.id}
-                onClick={() => onSwitchUser && onSwitchUser(user)}
-                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
-                  isActive
-                    ? 'bg-emerald-500/15 border-emerald-500 shadow-md shadow-emerald-500/10 ring-1 ring-emerald-500'
-                    : 'bg-[#121824] border-[#2A364F] hover:border-slate-600'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-base">{user.avatar}</span>
-                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-extrabold border ${user.badgeColor}`}>
-                      {user.role}
-                    </span>
-                  </div>
-                  <div className="font-bold text-slate-100 text-xs truncate">{user.name}</div>
-                  <div className="text-[10px] text-slate-400 truncate">{user.roleLabel}</div>
-                </div>
-
-                <div className="mt-2 text-[10px] font-semibold text-emerald-400 flex items-center justify-between border-t border-slate-800/80 pt-1.5">
-                  <span>{isActive ? '✓ Active Session' : 'Switch Identity'}</span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Main Subtab 1: Staff Roster */}
       {activeTabSub === 'STAFF' && (
         <div className="glass-panel rounded-2xl overflow-hidden border border-[#2A364F]">
@@ -132,7 +90,6 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                 <th className="p-3.5 text-right">SALES TODAY</th>
                 <th className="p-3.5 text-right">COMMISSION (2%)</th>
                 <th className="p-3.5 text-center">STATUS</th>
-                <th className="p-3.5 text-right">ACTION</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-slate-200">
@@ -144,7 +101,7 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                     </div>
                     <div>
                       <div>{stf.name}</div>
-                      <div className="text-[10px] text-slate-500 font-normal">{stf.email || `${stf.role.toLowerCase()}@nakurugrocery.co.ke`}</div>
+                      <div className="text-[10px] text-slate-500 font-normal">{stf.name}@biasharaos.com</div>
                     </div>
                   </td>
                   <td className="p-3.5 font-mono text-slate-400">{stf.phone}</td>
@@ -153,7 +110,6 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                       stf.role === 'OWNER' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
                       stf.role === 'MANAGER' ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' :
                       stf.role === 'SUPER_ADMIN' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
-                      stf.role === 'STOCK_CLERK' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' :
                       'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                     }`}>
                       {stf.role}
@@ -166,19 +122,6 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">
                       {stf.status}
                     </span>
-                  </td>
-                  <td className="p-3.5 text-right">
-                    <button
-                      onClick={() => {
-                        const matchingTestUser = TEST_USERS.find(u => u.name === stf.name || u.role === stf.role);
-                        if (matchingTestUser && onSwitchUser) {
-                          onSwitchUser(matchingTestUser);
-                        }
-                      }}
-                      className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] rounded-lg border border-slate-700 font-semibold"
-                    >
-                      Act As User
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -206,15 +149,13 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                   <th className="p-3 text-center">OWNER</th>
                   <th className="p-3 text-center">MANAGER</th>
                   <th className="p-3 text-center">CASHIER</th>
-                  <th className="p-3 text-center">STOCK_CLERK</th>
-                  <th className="p-3 text-center">AUDITOR</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60 text-slate-200">
                 {permissionsList.map(perm => (
                   <tr key={perm.key} className="hover:bg-slate-800/30">
                     <td className="p-3 font-semibold text-slate-100">{perm.label}</td>
-                    {['SUPER_ADMIN', 'OWNER', 'MANAGER', 'CASHIER', 'STOCK_CLERK', 'AUDITOR'].map(roleKey => {
+                    {['SUPER_ADMIN', 'OWNER', 'MANAGER', 'CASHIER'].map(roleKey => {
                       const isAllowed = ROLE_PERMISSIONS_MATRIX[roleKey]?.[perm.key];
                       return (
                         <td key={roleKey} className="p-3 text-center">
@@ -245,11 +186,11 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
             <h3 className="font-bold text-slate-100 text-base">Invite New Staff Member</h3>
 
             <div>
-              <label className="text-xs text-slate-300 block mb-1">Full Name *</label>
+              <label className="text-xs text-slate-300 block mb-1">Username / Name *</label>
               <input
-                type="text" required placeholder="Jane Muthoni"
+                type="text" required placeholder="test3user"
                 value={newStaff.name} onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
-                className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100"
+                className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100 font-mono"
               />
             </div>
 
@@ -269,10 +210,8 @@ export default function StaffManagement({ staffList, onAddStaff, activeTenant, c
                 className="w-full bg-[#121824] border border-[#2A364F] px-3 py-2 rounded-xl text-xs text-slate-100"
               >
                 <option value="CASHIER">CASHIER (POS Checkout & Receipts)</option>
-                <option value="STOCK_CLERK">STOCK_CLERK (Inventory Ledger & Receive Goods)</option>
                 <option value="MANAGER">MANAGER (Full Shop Operations & Approvals)</option>
                 <option value="OWNER">OWNER (Full Shop Admin)</option>
-                <option value="AUDITOR">AUDITOR (Read-Only Financial Auditing)</option>
               </select>
             </div>
 

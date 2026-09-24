@@ -3,7 +3,6 @@ import 'models/test_user.dart';
 import 'screens/pos_screen.dart';
 import 'screens/inventory_screen.dart';
 import 'screens/sync_screen.dart';
-import 'screens/role_switcher_screen.dart';
 
 void main() {
   runApp(const BiasharaOsMobileApp());
@@ -40,7 +39,9 @@ class MainMobileDashboard extends StatefulWidget {
 
 class _MainMobileDashboardState extends State<MainMobileDashboard> {
   int _activeTabIndex = 0;
-  TestUser _currentUser = TestUser.testPersonas[0]; // test1admin
+  bool _isLoggedIn = false;
+  TestUser? _currentUser;
+  final _usernameController = TextEditingController(text: 'test1user');
 
   void _showNotification(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -52,28 +53,141 @@ class _MainMobileDashboardState extends State<MainMobileDashboard> {
     );
   }
 
-  void _handleSwitchUser(TestUser newUser) {
+  void _handleLogin(TestUser targetUser) {
     setState(() {
-      _currentUser = newUser;
-      // Auto-route persona to their primary mobile view
-      if (newUser.role == 'SUPER_ADMIN') {
-        _activeTabIndex = 3; // Roles & Admin
-      } else if (newUser.role == 'STOCK_CLERK') {
+      _currentUser = targetUser;
+      _isLoggedIn = true;
+      if (targetUser.role == 'SUPER_ADMIN') {
+        _activeTabIndex = 2; // Sync / Admin
+      } else if (targetUser.role == 'STOCK_CLERK') {
         _activeTabIndex = 1; // Inventory
       } else {
         _activeTabIndex = 0; // POS Terminal
       }
     });
-    _showNotification('Switched active identity to ${newUser.name} (${newUser.roleLabel})');
+    _showNotification('Authenticated as ${targetUser.username} (${targetUser.roleLabel})');
+  }
+
+  void _handleLogout() {
+    setState(() {
+      _isLoggedIn = false;
+      _currentUser = null;
+    });
+    _showNotification('Logged out of mobile session.');
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_isLoggedIn || _currentUser == null) {
+      return Scaffold(
+        body: Container(
+          color: const Color(0xFF0B0F17),
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'B',
+                        style: TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'BiasharaOS Mobile',
+                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Handheld POS & Inventory Terminal',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      filled: true,
+                      fillColor: const Color(0xFF121824),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final matched = TestUser.testPersonas.firstWhere(
+                          (u) => u.username.toLowerCase() == _usernameController.text.trim().toLowerCase(),
+                          orElse: () => TestUser.testPersonas[1],
+                        );
+                        _handleLogin(matched);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('Sign In to Mobile POS', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Or Demo Sign In:',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  ...TestUser.testPersonas.map((user) => Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: OutlinedButton(
+                      onPressed: () => _handleLogin(user),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF2A364F)),
+                        backgroundColor: const Color(0xFF121824),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(user.avatar, style: const TextStyle(fontSize: 18)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(user.username, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                Text(user.roleLabel, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF10B981)),
+                        ],
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final screens = [
-      PosScreen(currentUser: _currentUser, showNotification: _showNotification),
-      InventoryScreen(currentUser: _currentUser),
+      PosScreen(currentUser: _currentUser!, showNotification: _showNotification),
+      InventoryScreen(currentUser: _currentUser!),
       SyncScreen(showNotification: _showNotification),
-      RoleSwitcherScreen(currentUser: _currentUser, onSwitchUser: _handleSwitchUser),
     ];
 
     return Scaffold(
@@ -98,32 +212,30 @@ class _MainMobileDashboardState extends State<MainMobileDashboard> {
           ],
         ),
         actions: [
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _activeTabIndex = 3; // Switch tab to Roles
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              margin: const EdgeInsets.only(right: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF121824),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFF2A364F)),
-              ),
-              child: Row(
-                children: [
-                  Text(_currentUser.avatar, style: const TextStyle(fontSize: 14)),
-                  const SizedBox(width: 6),
-                  Text(
-                    _currentUser.name,
-                    style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF121824),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFF2A364F)),
+            ),
+            child: Row(
+              children: [
+                Text(_currentUser!.avatar, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 6),
+                Text(
+                  _currentUser!.username,
+                  style: const TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
             ),
           ),
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout, color: Colors.rose, size: 20),
+            tooltip: 'Log Out',
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: IndexedStack(
@@ -153,10 +265,6 @@ class _MainMobileDashboardState extends State<MainMobileDashboard> {
           BottomNavigationBarItem(
             icon: Icon(Icons.cloud_sync),
             label: 'Offline Sync',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.admin_panel_settings),
-            label: 'Roles & Admin',
           ),
         ],
       ),
