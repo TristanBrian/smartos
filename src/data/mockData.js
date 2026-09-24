@@ -363,3 +363,148 @@ export const SUBSCRIPTION_TIERS = {
   MAX: { name: "Biashara Max", priceMonthlyKSh: 1299, maxLocations: "Unlimited", maxProducts: "Unlimited", maxStaff: "Unlimited", eTimsIncluded: true }
 };
 
+export const TEST_USERS = [
+  {
+    id: "usr_001",
+    name: "Alex Mwangi",
+    email: "alex.admin@biasharaos.com",
+    role: "SUPER_ADMIN",
+    roleLabel: "Platform Super Admin",
+    avatar: "👑",
+    phone: "+254 700 000 001",
+    shopId: "all",
+    badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/40",
+    description: "BiasharaOS Platform Systems Engineer. Cross-tenant observability, tenant onboarding & support impersonation."
+  },
+  {
+    id: "usr_002",
+    name: "Grace Wanjiru",
+    email: "grace.owner@nakurugrocery.co.ke",
+    role: "OWNER",
+    roleLabel: "Shop Owner / Admin",
+    avatar: "🏢",
+    phone: "+254 722 123 456",
+    shopId: "t_duka_nakuru",
+    badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+    description: "Owner & Seed Admin for Nakuru Fresh Duka. Full access to store operations, profile, staff & reports."
+  },
+  {
+    id: "usr_003",
+    name: "Brian Kiprono",
+    email: "brian.manager@nakurugrocery.co.ke",
+    role: "MANAGER",
+    roleLabel: "Store Manager",
+    avatar: "💼",
+    phone: "+254 733 999 888",
+    shopId: "t_duka_nakuru",
+    badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
+    description: "Branch Operations Manager. Manages inventory, sales approvals, discounts, eTIMS & staff supervision."
+  },
+  {
+    id: "usr_004",
+    name: "Kevin Omondi",
+    email: "kevin.cashier@nakurugrocery.co.ke",
+    role: "CASHIER",
+    roleLabel: "Head Cashier",
+    avatar: "💳",
+    phone: "+254 712 345 678",
+    shopId: "t_duka_nakuru",
+    badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+    description: "Front-desk Till Operator. Operates POS checkout & M-Pesa receipts. Restricted from stock write-offs & config."
+  },
+  {
+    id: "usr_005",
+    name: "Samuel Kiptoo",
+    email: "samuel.stock@nakurugrocery.co.ke",
+    role: "STOCK_CLERK",
+    roleLabel: "Inventory Officer",
+    avatar: "📦",
+    phone: "+254 720 987 123",
+    shopId: "t_duka_nakuru",
+    badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/40",
+    description: "Warehouse Goods Received Clerk. Manages stock adjustments & damaged write-offs. Cannot process sales."
+  },
+  {
+    id: "usr_006",
+    name: "Jane Mutua",
+    email: "jane.auditor@kra-audit.go.ke",
+    role: "AUDITOR",
+    roleLabel: "Financial Auditor",
+    avatar: "🔍",
+    phone: "+254 711 222 333",
+    shopId: "t_duka_nakuru",
+    badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/40",
+    description: "Compliance Officer & Tax Auditor. Read-only audit access to Reports, eTIMS Tax Hub & Ledger logs."
+  }
+];
+
+export const ROLE_PERMISSIONS_MATRIX = {
+  SUPER_ADMIN: {
+    allowedTabs: ['POS', 'INVENTORY', 'PAYMENTS', 'ETIMS', 'SYNC', 'STAFF', 'PROFILE', 'REPORTS', 'ADMIN'],
+    canProcessSales: true,
+    canOverrideDiscount: true,
+    canAdjustStock: true,
+    canManageStaff: true,
+    canEditStoreProfile: true,
+    canAccessPlatformAdmin: true,
+    canAuditImpersonate: true,
+    isReadOnly: false
+  },
+  OWNER: {
+    allowedTabs: ['POS', 'INVENTORY', 'PAYMENTS', 'ETIMS', 'SYNC', 'STAFF', 'PROFILE', 'REPORTS'],
+    canProcessSales: true,
+    canOverrideDiscount: true,
+    canAdjustStock: true,
+    canManageStaff: true,
+    canEditStoreProfile: true,
+    canAccessPlatformAdmin: false,
+    canAuditImpersonate: false,
+    isReadOnly: false
+  },
+  MANAGER: {
+    allowedTabs: ['POS', 'INVENTORY', 'PAYMENTS', 'ETIMS', 'SYNC', 'STAFF', 'REPORTS'],
+    canProcessSales: true,
+    canOverrideDiscount: true,
+    canAdjustStock: true,
+    canManageStaff: true,
+    canEditStoreProfile: false,
+    canAccessPlatformAdmin: false,
+    canAuditImpersonate: false,
+    isReadOnly: false
+  },
+  CASHIER: {
+    allowedTabs: ['POS', 'PAYMENTS', 'SYNC'],
+    canProcessSales: true,
+    canOverrideDiscount: false,
+    canAdjustStock: false,
+    canManageStaff: false,
+    canEditStoreProfile: false,
+    canAccessPlatformAdmin: false,
+    canAuditImpersonate: false,
+    isReadOnly: false
+  },
+  STOCK_CLERK: {
+    allowedTabs: ['INVENTORY', 'SYNC'],
+    canProcessSales: false,
+    canOverrideDiscount: false,
+    canAdjustStock: true,
+    canManageStaff: false,
+    canEditStoreProfile: false,
+    canAccessPlatformAdmin: false,
+    canAuditImpersonate: false,
+    isReadOnly: false
+  },
+  AUDITOR: {
+    allowedTabs: ['PAYMENTS', 'ETIMS', 'REPORTS', 'SYNC'],
+    canProcessSales: false,
+    canOverrideDiscount: false,
+    canAdjustStock: false,
+    canManageStaff: false,
+    canEditStoreProfile: false,
+    canAccessPlatformAdmin: false,
+    canAuditImpersonate: false,
+    isReadOnly: true
+  }
+};
+
+
