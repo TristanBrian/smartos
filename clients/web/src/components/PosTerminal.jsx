@@ -655,73 +655,78 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
         </div>
       )}
 
-      {/* Completed Sale Receipt Modal with Bluetooth Thermal Print capability */}
+      {/* Completed Sale Thermal Receipt Modal */}
       {completedSaleReceipt && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel max-w-sm w-full p-5 rounded-2xl border border-emerald-500/30 space-y-4 bg-white text-slate-900 shadow-2xl">
-            <div className="text-center space-y-1">
-              <h3 className="font-extrabold text-base tracking-tight">{activeTenant.name}</h3>
-              <p className="text-[10px] text-slate-600">{activeTenant.county} Branch</p>
-              <p className="text-[10px]">TEL: {activeTenant.phone}</p>
-              {activeTenant.isVatRegistered && <p className="text-[10px]">KRA PIN: {activeTenant.kraPin}</p>}
-              <div className="border-b border-dashed border-slate-400 my-2" />
-              <p className="text-[10px] font-mono">RECEIPT #: {completedSaleReceipt.receiptNumber}</p>
-              <p className="text-[10px]">{new Date(completedSaleReceipt.timestamp).toLocaleString()}</p>
-              <p className="text-[10px]">CASHIER: {completedSaleReceipt.cashierName}</p>
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="thermal-receipt max-w-xs w-full p-6 rounded-2xl border border-slate-300 space-y-3 bg-white text-slate-950 shadow-2xl font-mono">
+            <div className="text-center space-y-1 text-slate-950">
+              <h3 className="font-extrabold text-base tracking-tight uppercase text-slate-950">{activeTenant.name}</h3>
+              <p className="text-xs text-slate-700 font-semibold">{activeTenant.county} Branch</p>
+              <p className="text-xs text-slate-700">TEL: {activeTenant.phone}</p>
+              {activeTenant.isVatRegistered && <p className="text-xs text-slate-700 font-mono">KRA PIN: {activeTenant.kraPin}</p>}
+              <div className="border-b border-dashed border-slate-400 my-2.5" />
+              <p className="text-xs font-mono text-slate-950 font-bold">RECEIPT #: {completedSaleReceipt.receiptNumber}</p>
+              <p className="text-xs text-slate-700 font-mono">{new Date(completedSaleReceipt.timestamp).toLocaleString()}</p>
+              <p className="text-xs text-slate-800 font-bold">CASHIER: {completedSaleReceipt.cashierName}</p>
             </div>
 
-            <div className="border-b border-dashed border-slate-400 my-2" />
+            <div className="border-b border-dashed border-slate-400 my-2.5" />
 
-            <div className="space-y-1 text-xs font-mono">
+            <div className="space-y-1.5 text-xs font-mono text-slate-950">
               {completedSaleReceipt.items.map((item, idx) => (
-                <div key={idx} className="flex justify-between">
-                  <span>{item.qty} {item.uom || 'x'} {item.name.substring(0, 16)}</span>
-                  <span>{(item.lineTotalCents / 100).toFixed(2)}</span>
+                <div key={idx} className="flex justify-between items-center text-slate-950 font-bold">
+                  <span className="truncate max-w-[170px]">{item.qty} {item.uom || 'x'} {item.name}</span>
+                  <span className="font-extrabold font-mono">KSh {(item.lineTotalCents / 100).toFixed(2)}</span>
                 </div>
               ))}
             </div>
 
-            <div className="border-b border-dashed border-slate-400 my-2" />
+            <div className="border-b border-dashed border-slate-400 my-2.5" />
 
-            <div className="space-y-1 text-xs font-mono">
-              <div className="flex justify-between">
+            <div className="space-y-1.5 text-xs font-mono text-slate-950">
+              <div className="flex justify-between text-slate-800 font-semibold">
                 <span>SUBTOTAL:</span>
-                <span>KSh {(completedSaleReceipt.subtotalCents / 100).toFixed(2)}</span>
+                <span className="font-bold text-slate-950">KSh {(completedSaleReceipt.subtotalCents / 100).toFixed(2)}</span>
               </div>
               {completedSaleReceipt.discountCents > 0 && (
-                <div className="flex justify-between">
+                <div className="flex justify-between text-rose-800 font-bold">
                   <span>DISCOUNT:</span>
                   <span>-KSh {(completedSaleReceipt.discountCents / 100).toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-sm pt-1">
+              <div className="flex justify-between font-extrabold text-sm pt-1.5 border-t border-slate-300 text-slate-950">
                 <span>TOTAL PAID:</span>
-                <span>KSh {(completedSaleReceipt.grandTotalCents / 100).toFixed(2)}</span>
+                <span className="text-emerald-800 font-black">KSh {(completedSaleReceipt.grandTotalCents / 100).toFixed(2)}</span>
               </div>
 
               {completedSaleReceipt.paymentMethod === 'CASH' && (
-                <>
-                  <div className="flex justify-between text-[10px] pt-1">
+                <div className="my-2 p-2 bg-emerald-50 border border-emerald-300 rounded-xl space-y-1">
+                  <div className="flex justify-between text-xs text-emerald-950 font-semibold">
                     <span>CASH TENDERED:</span>
-                    <span>KSh {((completedSaleReceipt.cashTenderedCents || completedSaleReceipt.grandTotalCents) / 100).toFixed(2)}</span>
+                    <span className="font-bold font-mono">KSh {((completedSaleReceipt.cashTenderedCents || completedSaleReceipt.grandTotalCents) / 100).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-[10px] font-bold text-amber-900">
+                  <div className="flex justify-between text-sm font-extrabold text-emerald-900 border-t border-emerald-200 pt-1">
                     <span>CHANGE RETURNED:</span>
-                    <span>KSh {((completedSaleReceipt.changeGivenCents || 0) / 100).toFixed(2)}</span>
+                    <span className="font-mono">KSh {((completedSaleReceipt.changeGivenCents || 0) / 100).toFixed(2)}</span>
                   </div>
-                </>
+                </div>
               )}
 
-              <div className="flex justify-between text-[10px] pt-1">
-                <span>METHOD:</span>
-                <span>{completedSaleReceipt.paymentMethod}</span>
+              <div className="flex justify-between text-xs pt-1 text-slate-900 font-bold">
+                <span>PAYMENT METHOD:</span>
+                <span className="uppercase font-extrabold text-emerald-800">{completedSaleReceipt.paymentMethod}</span>
               </div>
             </div>
 
             {completedSaleReceipt.etimsInvoiceNo && (
-              <div className="text-center pt-2 border-t border-dashed border-slate-400 space-y-1">
-                <p className="text-[9px] font-bold">KRA eTIMS VERIFIED</p>
-                <p className="text-[8px] font-mono">{completedSaleReceipt.etimsInvoiceNo}</p>
+              <div className="text-center pt-2.5 border-t border-dashed border-slate-400 space-y-0.5 text-slate-950">
+                <p className="text-xs font-extrabold text-emerald-800 flex items-center justify-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 inline" /> KRA eTIMS VERIFIED
+                </p>
+                <p className="text-[10px] font-mono text-slate-700">{completedSaleReceipt.etimsInvoiceNo}</p>
+                {completedSaleReceipt.qrSignature && (
+                  <p className="text-[8px] font-mono text-slate-500 truncate">{completedSaleReceipt.qrSignature}</p>
+                )}
               </div>
             )}
 
@@ -730,15 +735,16 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
                 onClick={() => {
                   const thermalText = `${activeTenant.name}\nRECEIPT: ${completedSaleReceipt.receiptNumber}\nTOTAL: KSh ${(completedSaleReceipt.grandTotalCents/100).toFixed(2)}\nASANTE SANA!`;
                   sendEscPosBytes(thermalText);
+                  window.print();
                 }}
-                className="flex-1 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-md"
+                className="flex-1 py-2.5 bg-slate-950 hover:bg-slate-900 text-white text-xs font-extrabold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-slate-950/20 transition-all"
               >
-                <Printer className="w-3.5 h-3.5 text-emerald-400" />
+                <Printer className="w-4 h-4 text-emerald-400" />
                 {btConnected ? 'Print to BT Thermal Printer' : 'Print Receipt'}
               </button>
               <button
                 onClick={() => setCompletedSaleReceipt(null)}
-                className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-900 text-xs font-bold rounded-xl"
+                className="py-2.5 px-4 bg-slate-200 hover:bg-slate-300 text-slate-950 text-xs font-extrabold rounded-xl transition-all"
               >
                 Done
               </button>
