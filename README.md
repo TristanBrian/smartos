@@ -29,7 +29,156 @@ BiasharaOS supports self-service subscription renewals and tier upgrades powered
    - **`MAX`**: KSh 1,299/mo (Unlimited Locations, Unlimited Products, Unlimited Staff, eTIMS Included)
 2. **Renewal Duration Periods**: 1 Month (30 Days), 3 Months (90 Days), or 12 Months (1 Year).
 3. **STK Push Payment Trigger**: Enter mobile number (`2547XXXXXXXX`) to receive an instant handset prompt. Upon payment validation, the system computes the exact expiry date (`licenseExpiryDate`), issues a cryptographically signed license token (`licenseToken`), and sets tenant status to `ACTIVE`.
-4. **License Token Expiration**: View active license token status and expiration countdown in **Platform Admin Console** and **Store Profile & Settings**.
+4. **Platform Admin Manual Token Generation & Extension**:
+   - Platform Super Admin (`test1admin`) can extend any tenant's license duration (+1, +3, +6, +12 months) or re-issue a new cryptographic token key directly from the Admin Console when payment is verified out-of-band (e.g. Bank Wire, Cash, Cheque, or Enterprise Contract).
+5. **License Token Expiration**: View active license token status and expiration countdown in **Platform Admin Console** and **Store Profile & Settings**.
+
+---
+
+## 📐 Architecture & System Workflow Mermaid Diagrams
+
+### 1. Overall System Architecture & Data Flow
+```mermaid
+flowchart TB
+    subgraph Clients["📱 Client Tier"]
+        WebPOS["React 18 + Vite Web Dashboard\n(Chromium / PWA)"]
+        MobilePOS["Flutter Mobile App\n(Android / iOS / Handheld POS)"]
+    end
+
+    subgraph Security["🔒 Security & API Gateway"]
+        Nginx["Nginx Reverse Proxy / Load Balancer"]
+        RBAC["RBAC Interceptor & Session Validator"]
+        TenantFilter["TenantContextHolder\n(X-Tenant-ID Header)"]
+    end
+
+    subgraph Backend["⚙️ BiasharaOS Java Backend Core (Spring Boot 3)"]
+        TenantProv["TenantProvisioningService\n(Schema-per-Tenant)"]
+        SalesEngine["SalesService & Oversell Guard\n(BRULE-02 & BRULE-06)"]
+        LedgerService["StockLedgerService\n(Immutable Append-Only Log)"]
+        MpesaEngine["MpesaPaymentService\n(Safaricom Daraja 3.0 STK Push)"]
+        EtimsService["EtimsTaxService\n(KRA OSCU Signer)"]
+    end
+
+    subgraph DataTier["💾 Persistence & Database Tier"]
+        TenantRoutingDataSource["TenantRoutingDataSource"]
+        PlatDB[("platform Schema\n(Audits, Subscriptions, Users)")]
+        Tenant1DB[("tenant_duka_nakuru Schema\n(Products, Ledger, Sales)")]
+        Tenant2DB[("tenant_pharmacy_nrb Schema\n(Products, Ledger, Sales)")]
+        RedisCache[("Redis Cache\n(Idempotency & Sessions)")]
+        OutboxQueue[("SQLite Outbox / Kafka\n(Offline Sync Engine)")]
+    end
+
+    WebPOS -->|HTTP/REST| Nginx
+    MobilePOS -->|HTTP/REST| Nginx
+    Nginx --> RBAC --> TenantFilter
+    TenantFilter --> TenantRoutingDataSource
+    TenantRoutingDataSource --> PlatDB
+    TenantRoutingDataSource --> Tenant1DB
+    TenantRoutingDataSource --> Tenant2DB
+    SalesEngine --> LedgerService
+    SalesEngine --> MpesaEngine
+    SalesEngine --> EtimsService
+    Backend --> RedisCache
+    MobilePOS -.->|Offline Mode| OutboxQueue
+    OutboxQueue -.->|Re-connection Sync| Backend
+```
+
+### 2. Multi-Tenant PostgreSQL Schema-per-Tenant Isolation Architecture
+```mermaid
+flowchart LR
+    subgraph Request["🌐 Client Request"]
+        REQ["HTTP Request\nX-Tenant-ID: t_duka_nakuru"]
+    end
+
+    subgraph Interceptor["🛡️ Spring Boot Security Context"]
+        TCH["TenantContextHolder.setTenantId('t_duka_nakuru')"]
+        TRDS["TenantRoutingDataSource.determineCurrentLookupKey()"]
+    end
+
+    subgraph Postgres["🐘 PostgreSQL Database Instance"]
+        subgraph PlatformSchema["platform (Shared Metadata Schema)"]
+            P_USERS["platform.users"]
+            P_TENANTS["platform.tenants"]
+            P_SUBS["platform.subscriptions"]
+            P_AUDIT["platform.platform_audit_log"]
+        end
+
+        subgraph TenantSchema1["tenant_duka_nakuru (Isolated Duka Schema)"]
+            T1_PROD["tenant_duka_nakuru.products"]
+            T1_LEDG["tenant_duka_nakuru.stock_ledger"]
+            T1_SALES["tenant_duka_nakuru.sales"]
+            T1_TAX["tenant_duka_nakuru.etims_queue"]
+        end
+
+        subgraph TenantSchema2["tenant_pharmacy_nrb (Isolated Chemist Schema)"]
+            T2_PROD["tenant_pharmacy_nrb.products"]
+            T2_LEDG["tenant_pharmacy_nrb.stock_ledger"]
+            T2_SALES["tenant_pharmacy_nrb.sales"]
+        end
+    end
+
+    REQ --> TCH
+    TCH --> TRDS
+    TRDS -->|Set Search Path| TenantSchema1
+    TRDS -.->|Cross-Tenant Access Forbidden| TenantSchema2
+    TRDS -->|Shared Admin Query| PlatformSchema
+```
+
+### 3. M-Pesa STK Push, Stock Ledger & KRA eTIMS Order Sequence
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer
+    actor Cashier
+    participant POS as POS Terminal / Mobile Cart
+    participant Oversell as Oversell Guard (BRULE-02)
+    participant Mpesa as MpesaPaymentService (Daraja 3.0)
+    participant Safaricom as Safaricom Daraja API
+    participant Ledger as StockLedgerService
+    participant ETIMS as EtimsTaxService (KRA OSCU)
+
+    Cashier->>POS: Select Items & Tap M-Pesa STK Checkout
+    POS->>Oversell: Verify stockOnHand >= cartQty
+    alt Stock Insufficient
+        Oversell-->>POS: ❌ Reject: Hard Oversell Blocked
+    else Stock Available
+        Oversell-->>Mpesa: Initiate STK Push (Phone: 2547XXXXXXXX, Amount)
+        Mpesa->>Safaricom: POST /mpesa/stkpush/v1/processrequest (Bearer OAuth)
+        Safaricom-->>Customer: 📱 M-Pesa Handset PIN Prompt
+        Customer->>Safaricom: Enter M-Pesa PIN
+        Safaricom->>Mpesa: POST /api/v1/payments/mpesa/callback (TransID, ResultCode: 0)
+        Mpesa->>Mpesa: Verify Idempotency (tenant_id, trans_id)
+        Mpesa->>Ledger: Append Sale Movement (-Qty) to stock_ledger
+        Ledger->>ETIMS: Queue Invoice for OSCU Digital Signature
+        ETIMS->>ETIMS: Generate QR Signature (KRA-OSCU-VERIFIED)
+        Mpesa-->>POS: ✅ Transaction Confirmed & Web Bluetooth ESC/POS Receipt Printed
+    end
+```
+
+### 4. Subscription License Token Lifecycle & Platform Admin Extension Sequence
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Platform Admin / Shop Owner
+    participant Web as Admin Console / Store Profile
+    participant Billing as SubscriptionBillingService
+    participant TokenGen as LicenseTokenGenerator
+    participant DB as platform.subscriptions DB
+
+    alt M-Pesa STK Push Self-Service Renewal
+        Admin->>Web: Select Tier (LITE/PRO/MAX) & Duration (1/3/12 Mo)
+        Web->>Billing: Initiate STK Push Renewal
+        Billing-->>Admin: Handset Payment Prompt Confirmed
+        Billing->>TokenGen: Generate Signed Token (LIC-TIER-UUID-EXPIRY)
+        TokenGen->>DB: Update license_expiry_date & license_token (Status: ACTIVE)
+    else Platform Admin Manual Extension / Token Re-issuance (Out-of-Band Payment)
+        Admin->>Web: Click "Extend / Token" -> Select +1/+3/+6/+12 Months & Notes
+        Web->>Billing: Submit Admin Override (Bank Wire / Cash Verified)
+        Billing->>TokenGen: Issue Re-signed Cryptographic Token Key
+        TokenGen->>DB: Extend Expiry Date & Log platform_audit_log
+        Billing-->>Web: ✅ License Token Re-issued & Validated
+    end
+```
 
 ---
 

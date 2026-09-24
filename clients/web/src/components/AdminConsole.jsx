@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus, Building2, Phone, MapPin, Check } from 'lucide-react';
+import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus, Building2, Phone, MapPin, Check, Key, Calendar, Sparkles } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
-export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant }) {
+export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant, onAdminExtendLicenseToken }) {
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [selectedTargetTenant, setSelectedTargetTenant] = useState(null);
   const [consentApproved, setConsentApproved] = useState(false);
@@ -26,6 +26,30 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
   const [renewalMonths, setRenewalMonths] = useState(3); // 1, 3, 12
   const [stkPhone, setStkPhone] = useState('+254 722 000 111');
   const [stkStatus, setStkStatus] = useState('IDLE'); // IDLE, PUSHING, SUCCESS
+
+  // Admin Manual Token Generation / Extension State
+  const [extendModal, setExtendModal] = useState(false);
+  const [extendTargetTenant, setExtendTargetTenant] = useState(null);
+  const [extendMonths, setExtendMonths] = useState(3);
+  const [extendTier, setExtendTier] = useState('LITE');
+  const [extendNotes, setExtendNotes] = useState('Manual Out-of-Band Payment / Bank Wire Verified');
+
+  const handleOpenExtendToken = (tenant) => {
+    setExtendTargetTenant(tenant);
+    setExtendTier(tenant.tier || 'LITE');
+    setExtendMonths(3);
+    setExtendNotes('Manual Out-of-Band Payment / Bank Wire Verified');
+    setExtendModal(true);
+  };
+
+  const handleExecuteTokenExtension = (e) => {
+    e.preventDefault();
+    if (!extendTargetTenant) return;
+    if (onAdminExtendLicenseToken) {
+      onAdminExtendLicenseToken(extendTargetTenant.id, extendTier, extendMonths, extendNotes);
+    }
+    setExtendModal(false);
+  };
 
   const handleExecuteImpersonation = () => {
     if (!consentApproved || !selectedTargetTenant) return;
@@ -181,12 +205,20 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                     </span>
                   </td>
                   <td className="p-3 text-right">
-                    <button
-                      onClick={() => { setSelectedTargetTenant(t); setImpersonateModal(true); }}
-                      className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[11px] rounded-lg border border-rose-500/30 flex items-center gap-1 ml-auto font-medium"
-                    >
-                      <Eye className="w-3 h-3" /> Impersonate (Audited)
-                    </button>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => handleOpenExtendToken(t)}
+                        className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] rounded-lg border border-emerald-500/30 flex items-center gap-1 font-semibold"
+                      >
+                        <Key className="w-3 h-3" /> Extend / Token
+                      </button>
+                      <button
+                        onClick={() => { setSelectedTargetTenant(t); setImpersonateModal(true); }}
+                        className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[11px] rounded-lg border border-rose-500/30 flex items-center gap-1 font-medium"
+                      >
+                        <Eye className="w-3 h-3" /> Impersonate
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -542,6 +574,99 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
               >
                 Trigger M-Pesa STK Push Renewal <CreditCard className="w-4 h-4" />
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Manual License Extension & Token Re-issuance Modal */}
+      {extendModal && extendTargetTenant && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4">
+            <div className="flex justify-between items-center border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2 font-display">
+                <Key className="w-5 h-5 text-emerald-400" /> Platform Admin License Token Generator
+              </h3>
+              <button
+                onClick={() => setExtendModal(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteTokenExtension} className="space-y-4 text-xs">
+              <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F] space-y-1">
+                <span className="text-slate-400">Target Shop Workspace:</span>
+                <div className="font-extrabold text-slate-100 text-sm">{extendTargetTenant.name}</div>
+                <div className="text-[11px] text-slate-500 font-mono">Current Expiry: {extendTargetTenant.licenseExpiryDate || '2026-12-31'} | Token: {extendTargetTenant.licenseToken || 'LIC-ACTIVE'}</div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Target Subscription Tier</label>
+                  <select
+                    value={extendTier}
+                    onChange={(e) => setExtendTier(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="LITE">Lite (KSh 299/mo)</option>
+                    <option value="PRO">Pro (KSh 599/mo)</option>
+                    <option value="MAX">Max (KSh 1,299/mo)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Extension Duration</label>
+                  <select
+                    value={extendMonths}
+                    onChange={(e) => setExtendMonths(Number(e.target.value))}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value={1}>+1 Month (30 Days)</option>
+                    <option value={3}>+3 Months (90 Days)</option>
+                    <option value={6}>+6 Months (180 Days)</option>
+                    <option value={12}>+12 Months (1 Year)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">Out-of-Band Payment & Audit Notes *</label>
+                <input
+                  type="text"
+                  required
+                  value={extendNotes}
+                  onChange={(e) => setExtendNotes(e.target.value)}
+                  placeholder="e.g. Bank Wire #98124 / Cash Payment Confirmed"
+                  className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-1">
+                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" /> Token Re-issuance & Expiry Calculation:
+                </span>
+                <div className="font-mono text-emerald-300 text-[11px] truncate">
+                  Target Tier: {extendTier} | Added Period: +{extendMonths} Month(s)
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setExtendModal(false)}
+                  className="py-2.5 bg-slate-800 text-slate-300 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-1.5"
+                >
+                  <Key className="w-4 h-4" /> Issue & Extend Token
+                </button>
+              </div>
             </form>
           </div>
         </div>

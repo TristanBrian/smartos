@@ -310,6 +310,34 @@ export default function App() {
     showToast(`M-Pesa STK Push Confirmed! Subscription renewed to ${newTier} (${monthsToAdd} Month${monthsToAdd > 1 ? 's' : ''}) — Valid until ${expiryStr}!`, 'success');
   };
 
+  const handleAdminExtendLicenseToken = (tenantId, targetTier, durationMonths = 3, notes = 'Admin Out-of-Band Payment Override') => {
+    const monthsToAdd = Number(durationMonths) || 3;
+    const target = tenants.find(t => t.id === tenantId) || activeTenant;
+
+    let baseDate = new Date();
+    if (target.licenseExpiryDate && new Date(target.licenseExpiryDate) > baseDate) {
+      baseDate = new Date(target.licenseExpiryDate);
+    }
+    baseDate.setMonth(baseDate.getMonth() + monthsToAdd);
+    const expiryStr = baseDate.toISOString().split('T')[0];
+    const newToken = `LIC-${targetTier || target.tier}-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${expiryStr}`;
+
+    setTenants(prev => prev.map(t => {
+      if (t.id === tenantId) {
+        return {
+          ...t,
+          tier: targetTier || t.tier,
+          licenseExpiryDate: expiryStr,
+          licenseToken: newToken,
+          status: 'ACTIVE'
+        };
+      }
+      return t;
+    }));
+
+    showToast(`Platform Admin Extended License for '${target.name}' (+${monthsToAdd} Mo) — New Token: ${newToken}!`, 'success');
+  };
+
   const handleOnboardTenant = (newTenantData) => {
     const slug = newTenantData.name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
     const tenantId = `t_${slug}_${Math.random().toString(36).substring(2, 8)}`;
@@ -630,6 +658,7 @@ export default function App() {
             onSwitchTenant={setActiveTenantId}
             onUpdateTenantTier={handleUpdateTenantTier}
             onOnboardTenant={handleOnboardTenant}
+            onAdminExtendLicenseToken={handleAdminExtendLicenseToken}
           />
         )}
       </main>
