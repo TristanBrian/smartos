@@ -4,6 +4,7 @@ import com.biasharaos.domain.inventory.StockLedgerServiceTest;
 import com.biasharaos.domain.payment.MpesaPaymentServiceTest;
 import com.biasharaos.domain.profile.ProfileServiceTest;
 import com.biasharaos.domain.sales.SalesServiceTest;
+import com.biasharaos.platform.tenant.TenantProvisioningServiceTest;
 
 public class TestRunner {
     public static void main(String[] args) {
@@ -122,6 +123,29 @@ public class TestRunner {
         } catch (Throwable t) {
             failures++;
             System.err.println("[FAIL] SalesServiceTest: " + t.getMessage());
+        }
+
+        // 6. Run TenantProvisioningServiceTest
+        try {
+            TenantProvisioningServiceTest tenantSuite = new TenantProvisioningServiceTest();
+            tenantSuite.testOnboardNewShop_Success();
+            testsRun++;
+            System.out.println("[PASS] TenantProvisioningServiceTest.testOnboardNewShop_Success");
+
+            tenantSuite.testOnboardNewShop_MissingName_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] TenantProvisioningServiceTest.testOnboardNewShop_MissingName_ThrowsException");
+
+            tenantSuite.testOnboardNewShop_VatRegisteredWithoutKraPin_ThrowsException();
+            testsRun++;
+            System.out.println("[PASS] TenantProvisioningServiceTest.testOnboardNewShop_VatRegisteredWithoutKraPin_ThrowsException");
+
+            tenantSuite.testOnboardNewShop_VatRegisteredWithValidKraPin_Success();
+            testsRun++;
+            System.out.println("[PASS] TenantProvisioningServiceTest.testOnboardNewShop_VatRegisteredWithValidKraPin_Success");
+        } catch (Throwable t) {
+            failures++;
+            System.err.println("[FAIL] TenantProvisioningServiceTest: " + t.getMessage());
         }
 
         System.out.println("-------------------------------------------------------");

@@ -200,6 +200,32 @@ export default function App() {
     showToast(`Tenant subscription upgraded to ${newTier}!`, 'success');
   };
 
+  const handleOnboardTenant = (newTenantData) => {
+    const slug = newTenantData.name.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_');
+    const tenantId = `t_${slug}_${Math.random().toString(36).substring(2, 8)}`;
+    const schemaName = `tenant_${tenantId}`;
+
+    const newTenant = {
+      id: tenantId,
+      schemaName: schemaName,
+      name: newTenantData.name,
+      type: newTenantData.type || 'GROCERY',
+      county: newTenantData.county || 'Nairobi',
+      ownerName: newTenantData.ownerName || 'Shop Admin',
+      ownerPhone: newTenantData.ownerPhone || '0722000000',
+      tier: newTenantData.tier || 'LITE',
+      isVatRegistered: Boolean(newTenantData.isVatRegistered),
+      kraPin: newTenantData.kraPin || null,
+      mpesaPaybill: newTenantData.mpesaPaybill || '123456',
+      status: 'ACTIVE',
+      createdAt: new Date().toISOString()
+    };
+
+    setTenants(prev => [...prev, newTenant]);
+    setActiveTenantId(tenantId);
+    showToast(`Provisioned schema '${schemaName}' for ${newTenantData.name}!`, 'success');
+  };
+
   const handleUpdateTenantProfile = (updatedTenant) => {
     setTenants(prev => prev.map(t => t.id === updatedTenant.id ? updatedTenant : t));
     showToast(`Store profile & security configuration updated!`, 'success');
@@ -408,6 +434,7 @@ export default function App() {
             activeTenant={activeTenant}
             onSwitchTenant={setActiveTenantId}
             onUpdateTenantTier={handleUpdateTenantTier}
+            onOnboardTenant={handleOnboardTenant}
           />
         )}
       </main>

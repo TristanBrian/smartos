@@ -1,17 +1,70 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw } from 'lucide-react';
+import { ShieldAlert, Server, Users, CreditCard, Activity, Lock, Eye, CheckCircle, RefreshCw, Plus, Building2, Phone, MapPin, Check } from 'lucide-react';
 import { SUBSCRIPTION_TIERS } from '../data/mockData';
 
-export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier }) {
+export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, onUpdateTenantTier, onOnboardTenant }) {
   const [impersonateModal, setImpersonateModal] = useState(false);
   const [selectedTargetTenant, setSelectedTargetTenant] = useState(null);
   const [consentApproved, setConsentApproved] = useState(false);
+
+  // Tenant Onboarding Modal State
+  const [onboardModal, setOnboardModal] = useState(false);
+  const [newShopName, setNewShopName] = useState('');
+  const [newShopType, setNewShopType] = useState('GROCERY');
+  const [newCounty, setNewCounty] = useState('Nairobi');
+  const [newOwnerName, setNewOwnerName] = useState('');
+  const [newOwnerPhone, setNewOwnerPhone] = useState('');
+  const [newTier, setNewTier] = useState('LITE');
+  const [newIsVat, setNewIsVat] = useState(false);
+  const [newKraPin, setNewKraPin] = useState('');
+  const [newPaybill, setNewPaybill] = useState('');
+  const [onboardError, setOnboardError] = useState('');
 
   const handleExecuteImpersonation = () => {
     if (!consentApproved || !selectedTargetTenant) return;
     onSwitchTenant(selectedTargetTenant.id);
     setImpersonateModal(false);
     setConsentApproved(false);
+  };
+
+  const handleOnboardSubmit = (e) => {
+    e.preventDefault();
+    setOnboardError('');
+
+    if (!newShopName.trim()) {
+      setOnboardError('Shop Name is required for tenant onboarding.');
+      return;
+    }
+
+    if (newIsVat) {
+      const pinRegex = /^[A-Z0-9]{11}$/;
+      if (!newKraPin || !pinRegex.test(newKraPin.trim().toUpperCase())) {
+        setOnboardError('Valid 11-character KRA PIN (e.g. A012345678X) is required for VAT shops (FR-TAX-01).');
+        return;
+      }
+    }
+
+    if (onOnboardTenant) {
+      onOnboardTenant({
+        name: newShopName.trim(),
+        type: newShopType,
+        county: newCounty,
+        ownerName: newOwnerName.trim() || 'Shop Admin',
+        ownerPhone: newOwnerPhone.trim() || '0722000000',
+        tier: newTier,
+        isVatRegistered: newIsVat,
+        kraPin: newIsVat ? newKraPin.trim().toUpperCase() : null,
+        mpesaPaybill: newPaybill.trim() || '123456'
+      });
+    }
+
+    setNewShopName('');
+    setNewOwnerName('');
+    setNewOwnerPhone('');
+    setNewKraPin('');
+    setNewPaybill('');
+    setNewIsVat(false);
+    setOnboardModal(false);
   };
 
   return (
@@ -23,21 +76,32 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
             <ShieldAlert className="w-6 h-6 text-rose-400" /> BiasharaOS Platform Admin & Support Console
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Cross-tenant observability, tenant health telemetry, support impersonation, and subscription management.
+            Cross-tenant observability, multi-tenant shop provisioning, support impersonation, and subscription management.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-[#121824] px-3 py-1.5 rounded-xl border border-[#2A364F] text-xs">
-          <Activity className="w-4 h-4 text-emerald-400" />
-          <span className="text-slate-300">Platform Health: <strong>100% Operational</strong></span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setOnboardModal(true)}
+            className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 transition-all"
+          >
+            <Plus className="w-4 h-4" /> Onboard New Shop Tenant
+          </button>
+          <div className="flex items-center gap-2 bg-[#121824] px-3 py-2 rounded-xl border border-[#2A364F] text-xs">
+            <Activity className="w-4 h-4 text-emerald-400" />
+            <span className="text-slate-300">Platform: <strong>100% Operational</strong></span>
+          </div>
         </div>
       </div>
 
       {/* Subscription Tier Entitlement Table */}
       <div className="glass-panel p-5 rounded-2xl border border-[#2A364F] space-y-4">
-        <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-emerald-400" /> Monitored Tenant Accounts & Tier Entitlements
-        </h3>
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-slate-100 text-sm flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-emerald-400" /> Provisioned Tenant Workspaces ({tenants.length})
+          </h3>
+          <span className="text-xs text-slate-400">Schema Isolation: <code>tenant_&lt;slug&gt;_&lt;uuid&gt;</code></span>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
@@ -55,7 +119,10 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
             <tbody className="divide-y divide-slate-800/60 text-slate-200">
               {tenants.map(t => (
                 <tr key={t.id} className="hover:bg-slate-800/30">
-                  <td className="p-3 font-bold text-slate-100">{t.name}</td>
+                  <td className="p-3">
+                    <div className="font-bold text-slate-100">{t.name}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">{t.schemaName || `tenant_${t.id}`}</div>
+                  </td>
                   <td className="p-3 text-slate-400">{t.county}</td>
                   <td className="p-3">
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -63,14 +130,14 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
                     </span>
                   </td>
                   <td className="p-3 text-right font-bold text-emerald-400">
-                    KSh {SUBSCRIPTION_TIERS[t.tier].priceMonthlyKSh}/mo
+                    KSh {SUBSCRIPTION_TIERS[t.tier]?.priceMonthlyKSh || 0}/mo
                   </td>
                   <td className="p-3 text-center">
-                    {t.isVatRegistered ? <span className="text-emerald-400 font-bold">VAT (OSCU)</span> : <span className="text-slate-500">Exempt</span>}
+                    {t.isVatRegistered ? <span className="text-emerald-400 font-bold">VAT ({t.kraPin || 'OSCU'})</span> : <span className="text-slate-500">Exempt</span>}
                   </td>
                   <td className="p-3 text-center">
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300">
-                      {t.status}
+                      {t.status || 'ACTIVE'}
                     </span>
                   </td>
                   <td className="p-3 text-right">
@@ -129,6 +196,174 @@ export default function AdminConsole({ tenants, activeTenant, onSwitchTenant, on
           ))}
         </div>
       </div>
+
+      {/* Onboard New Shop Tenant Modal */}
+      {onboardModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-[#2A364F] pb-3">
+              <h3 className="font-bold text-slate-100 text-base flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-emerald-400" /> Onboard New Multi-Tenant Shop
+              </h3>
+              <button
+                onClick={() => setOnboardModal(false)}
+                className="text-slate-400 hover:text-slate-200 text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {onboardError && (
+              <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium">
+                {onboardError}
+              </div>
+            )}
+
+            <form onSubmit={handleOnboardSubmit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Shop Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Mama Mboga Fresh Express"
+                    value={newShopName}
+                    onChange={(e) => setNewShopName(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Business Type</label>
+                  <select
+                    value={newShopType}
+                    onChange={(e) => setNewShopType(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="GROCERY">Grocery / Kiosk</option>
+                    <option value="SUPERMARKET">Supermarket</option>
+                    <option value="WHOLESALE">Wholesale Merchant</option>
+                    <option value="CHEMIST">Chemist / Pharmacy</option>
+                    <option value="HARDWARE">Hardware Store</option>
+                    <option value="PRODUCE">Fresh Produce Market</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">County / Region</label>
+                  <select
+                    value={newCounty}
+                    onChange={(e) => setNewCounty(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Nairobi">Nairobi</option>
+                    <option value="Nakuru">Nakuru</option>
+                    <option value="Mombasa">Mombasa</option>
+                    <option value="Kisumu">Kisumu</option>
+                    <option value="Uasin Gishu">Uasin Gishu (Eldoret)</option>
+                    <option value="Kiambu">Kiambu</option>
+                    <option value="Machakos">Machakos</option>
+                    <option value="Meru">Meru</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Subscription Tier</label>
+                  <select
+                    value={newTier}
+                    onChange={(e) => setNewTier(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="LITE">Lite (KSh 1,500/mo)</option>
+                    <option value="PRO">Pro (KSh 3,500/mo)</option>
+                    <option value="SCALE">Scale (KSh 7,500/mo)</option>
+                    <option value="ENTERPRISE">Enterprise (KSh 15,000/mo)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Owner / Seed Admin Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Mary Wanjiku"
+                    value={newOwnerName}
+                    onChange={(e) => setNewOwnerName(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">Owner Phone Number</label>
+                  <input
+                    type="text"
+                    placeholder="0722000111"
+                    value={newOwnerPhone}
+                    onChange={(e) => setNewOwnerPhone(e.target.value)}
+                    className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F] space-y-3">
+                <label className="flex items-center gap-2 text-slate-200 font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={newIsVat}
+                    onChange={(e) => setNewIsVat(e.target.checked)}
+                    className="rounded border-[#2A364F] bg-[#0B0F17] text-emerald-500 focus:ring-0"
+                  />
+                  <span>VAT Registered Business (Requires KRA PIN)</span>
+                </label>
+
+                {newIsVat && (
+                  <div>
+                    <label className="block text-slate-300 font-medium mb-1">KRA PIN (11 Chars, e.g. A012345678X) *</label>
+                    <input
+                      type="text"
+                      maxLength={11}
+                      placeholder="A012345678X"
+                      value={newKraPin}
+                      onChange={(e) => setNewKraPin(e.target.value)}
+                      className="w-full bg-[#0B0F17] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 font-mono focus:outline-none focus:border-emerald-500 uppercase"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-medium mb-1">M-Pesa Paybill / Till Shortcode</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 123456"
+                  value={newPaybill}
+                  onChange={(e) => setNewPaybill(e.target.value)}
+                  className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3 py-2 text-slate-100 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOnboardModal(false)}
+                  className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold rounded-xl shadow-lg shadow-emerald-500/20"
+                >
+                  Provision Shop Schema
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Consent-Gated Impersonation Modal */}
       {impersonateModal && selectedTargetTenant && (
