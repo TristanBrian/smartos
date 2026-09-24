@@ -187,7 +187,7 @@ export const INITIAL_LEDGER_ENTRIES = [
     delta: 50,
     runningBalance: 50,
     refDocument: "INV-REC-2026-001",
-    actorName: "Grace Wanjiru"
+    actorName: "test1user"
   },
   {
     id: "ledg_102",
@@ -198,7 +198,7 @@ export const INITIAL_LEDGER_ENTRIES = [
     delta: -8,
     runningBalance: 42,
     refDocument: "REC-10042",
-    actorName: "Kevin Omondi (Cashier)"
+    actorName: "test2user (Cashier)"
   },
   {
     id: "ledg_103",
@@ -209,7 +209,7 @@ export const INITIAL_LEDGER_ENTRIES = [
     delta: -2,
     runningBalance: 3,
     refDocument: "ADJ-REASON-DAMAGED",
-    actorName: "Grace Wanjiru",
+    actorName: "test1user",
     reason: "Damaged during delivery"
   }
 ];
@@ -219,7 +219,7 @@ export const INITIAL_SALES = [
     id: "sale_10042",
     receiptNumber: "REC-10042",
     timestamp: "2026-09-23T10:15:00Z",
-    cashierName: "Kevin Omondi",
+    cashierName: "test2user",
     items: [
       { sku: "BEV-MILK-500ML", name: "Fresh Milk 500ml", qty: 2, unitPriceCents: 6500, lineTotalCents: 13000 },
       { sku: "FOOD-UNGA-2KG", name: "Maize Meal Unga 2kg", qty: 1, unitPriceCents: 19000, lineTotalCents: 19000 }
@@ -240,7 +240,7 @@ export const INITIAL_SALES = [
     id: "sale_10041",
     receiptNumber: "REC-10041",
     timestamp: "2026-09-23T09:40:00Z",
-    cashierName: "Kevin Omondi",
+    cashierName: "test2user",
     items: [
       { sku: "HOME-SUGAR-1KG", name: "White Refined Sugar 1kg", qty: 1, unitPriceCents: 15500, lineTotalCents: 15500 }
     ],
@@ -303,8 +303,8 @@ export const INITIAL_ETIMS_QUEUE = [
 export const INITIAL_STAFF = [
   {
     id: "stf_01",
-    name: "Grace Wanjiru",
-    phone: "+254 722 123 456",
+    name: "test1user",
+    phone: "+254 722 000 111",
     role: "OWNER",
     location: "Main Branch (Nakuru)",
     status: "ACTIVE",
@@ -313,23 +313,13 @@ export const INITIAL_STAFF = [
   },
   {
     id: "stf_02",
-    name: "Kevin Omondi",
-    phone: "+254 712 345 678",
+    name: "test2user",
+    phone: "+254 712 000 222",
     role: "CASHIER",
     location: "Main Branch (Nakuru)",
     status: "ACTIVE",
     salesTodayCents: 47000,
-    commissionEarnedCents: 940 // 2% commission
-  },
-  {
-    id: "stf_03",
-    name: "Samuel Kiptoo",
-    phone: "+254 720 987 123",
-    role: "STOCK_CLERK",
-    location: "Warehouse Branch",
-    status: "ACTIVE",
-    salesTodayCents: 0,
-    commissionEarnedCents: 0
+    commissionEarnedCents: 940
   }
 ];
 
@@ -338,7 +328,7 @@ export const INITIAL_CASH_DEPOSITS = [
     id: "cdep_001",
     refNumber: "DEP-20260923-01",
     timestamp: "2026-09-23T08:00:00Z",
-    depositorName: "Grace Wanjiru",
+    depositorName: "test1user",
     type: "TILL_FLOAT",
     amountCents: 500000, // KSh 5,000.00
     notes: "Morning Till Opening Float",
@@ -348,7 +338,7 @@ export const INITIAL_CASH_DEPOSITS = [
     id: "cdep_002",
     refNumber: "DEP-20260923-02",
     timestamp: "2026-09-23T14:30:00Z",
-    depositorName: "Kevin Omondi",
+    depositorName: "test2user",
     type: "BANK_DEPOSIT",
     amountCents: 1500000, // KSh 15,000.00
     notes: "Midday Cash Drawer Banking (KCB Bank)",
@@ -366,75 +356,42 @@ export const SUBSCRIPTION_TIERS = {
 export const TEST_USERS = [
   {
     id: "usr_001",
-    name: "Alex Mwangi",
-    email: "alex.admin@biasharaos.com",
+    username: "test1admin",
+    name: "test1admin",
+    email: "test1admin@biasharaos.com",
     role: "SUPER_ADMIN",
-    roleLabel: "Platform Super Admin",
+    roleLabel: "Platform Admin",
     avatar: "👑",
     phone: "+254 700 000 001",
     shopId: "all",
     badgeColor: "bg-rose-500/20 text-rose-300 border-rose-500/40",
-    description: "BiasharaOS Platform Systems Engineer. Cross-tenant observability, tenant onboarding & support impersonation."
+    description: "Platform Admin. Full access to cross-tenant observability, shop onboarding & support impersonation."
   },
   {
     id: "usr_002",
-    name: "Grace Wanjiru",
-    email: "grace.owner@nakurugrocery.co.ke",
+    username: "test1user",
+    name: "test1user",
+    email: "test1user@biasharaos.com",
     role: "OWNER",
     roleLabel: "Shop Owner / Admin",
     avatar: "🏢",
-    phone: "+254 722 123 456",
+    phone: "+254 722 000 111",
     shopId: "t_duka_nakuru",
     badgeColor: "bg-amber-500/20 text-amber-300 border-amber-500/40",
-    description: "Owner & Seed Admin for Nakuru Fresh Duka. Full access to store operations, profile, staff & reports."
+    description: "Shop Admin for Nakuru Fresh Duka. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports."
   },
   {
     id: "usr_003",
-    name: "Brian Kiprono",
-    email: "brian.manager@nakurugrocery.co.ke",
-    role: "MANAGER",
-    roleLabel: "Store Manager",
-    avatar: "💼",
-    phone: "+254 733 999 888",
-    shopId: "t_duka_nakuru",
-    badgeColor: "bg-cyan-500/20 text-cyan-300 border-cyan-500/40",
-    description: "Branch Operations Manager. Manages inventory, sales approvals, discounts, eTIMS & staff supervision."
-  },
-  {
-    id: "usr_004",
-    name: "Kevin Omondi",
-    email: "kevin.cashier@nakurugrocery.co.ke",
+    username: "test2user",
+    name: "test2user",
+    email: "test2user@biasharaos.com",
     role: "CASHIER",
-    roleLabel: "Head Cashier",
+    roleLabel: "Store Cashier",
     avatar: "💳",
-    phone: "+254 712 345 678",
+    phone: "+254 712 000 222",
     shopId: "t_duka_nakuru",
     badgeColor: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
-    description: "Front-desk Till Operator. Operates POS checkout & M-Pesa receipts. Restricted from stock write-offs & config."
-  },
-  {
-    id: "usr_005",
-    name: "Samuel Kiptoo",
-    email: "samuel.stock@nakurugrocery.co.ke",
-    role: "STOCK_CLERK",
-    roleLabel: "Inventory Officer",
-    avatar: "📦",
-    phone: "+254 720 987 123",
-    shopId: "t_duka_nakuru",
-    badgeColor: "bg-purple-500/20 text-purple-300 border-purple-500/40",
-    description: "Warehouse Goods Received Clerk. Manages stock adjustments & damaged write-offs. Cannot process sales."
-  },
-  {
-    id: "usr_006",
-    name: "Jane Mutua",
-    email: "jane.auditor@kra-audit.go.ke",
-    role: "AUDITOR",
-    roleLabel: "Financial Auditor",
-    avatar: "🔍",
-    phone: "+254 711 222 333",
-    shopId: "t_duka_nakuru",
-    badgeColor: "bg-blue-500/20 text-blue-300 border-blue-500/40",
-    description: "Compliance Officer & Tax Auditor. Read-only audit access to Reports, eTIMS Tax Hub & Ledger logs."
+    description: "Front-desk Till Operator. Operates POS checkout & M-Pesa receipt reconciliation. Restricted from stock write-offs & config."
   }
 ];
 
