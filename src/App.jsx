@@ -116,12 +116,11 @@ export default function App() {
     };
   }, []);
 
-  // Authentication & Dynamic Persona Dashboard Routing with Granular Field Validation
+  // Authentication & Dynamic Persona Dashboard Routing with Clean Validation
   const handlePerformLogin = (specificUser) => {
     let targetUser = specificUser;
     setUsernameError('');
     setPasswordError('');
-    setLoginError('');
 
     const trimmedUsername = loginUsername.trim();
 
@@ -131,7 +130,7 @@ export default function App() {
         setUsernameError('Username / Account ID is required');
         hasErr = true;
       } else if (trimmedUsername.length < 3) {
-        setUsernameError('Username must be at least 3 characters long');
+        setUsernameError('Username must be at least 3 characters');
         hasErr = true;
       }
 
@@ -145,21 +144,18 @@ export default function App() {
       targetUser = TEST_USERS.find(u => u.username.toLowerCase() === trimmedUsername.toLowerCase());
 
       if (!targetUser) {
-        setUsernameError(`Account '${trimmedUsername}' does not exist. Valid users: test1admin, test1user, test2user.`);
-        setLoginError(`Authentication failed: User '${trimmedUsername}' not found. Please check spelling or refer to README.md.`);
+        setUsernameError(`Account '${trimmedUsername}' does not exist`);
         return;
       }
 
       if (loginPassword !== 'password123') {
-        setPasswordError(`Incorrect password for user '${trimmedUsername}'. Default demo password: 'password123'.`);
-        setLoginError(`Invalid password for account '${trimmedUsername}'.`);
+        setPasswordError('Incorrect password');
         return;
       }
     }
 
     setCurrentUser(targetUser);
     setIsLoggedIn(true);
-    setLoginError('');
     setUsernameError('');
     setPasswordError('');
 
@@ -478,12 +474,6 @@ export default function App() {
               Kenyan MSME Business & Inventory Intelligence Platform
             </p>
           </div>
-
-          {loginError && (
-            <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 font-medium">
-              {loginError}
-            </div>
-          )}
 
           <form onSubmit={(e) => { e.preventDefault(); handlePerformLogin(); }} className="space-y-4">
             <div>
