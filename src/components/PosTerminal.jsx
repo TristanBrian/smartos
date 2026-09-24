@@ -245,6 +245,12 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
 
   const handleProcessPayment = () => {
     if (paymentMethod === 'MPESA_STK') {
+      const cleanPhone = customerPhone.replace(/[^0-9+]/g, '');
+      if (!cleanPhone || cleanPhone.length < 10) {
+        alert('Invalid M-Pesa Mobile Number: Enter a valid 10-13 digit Kenyan Safaricom phone number (e.g. 0722000111 or +254722000111).');
+        return;
+      }
+
       setStkPushStep('SENDING');
       setTimeout(() => {
         setStkPushStep('WAITING_PIN');
@@ -253,6 +259,14 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           finalizeSaleRecord('MPESA_STK', 'COMPLETED');
         }, 2200);
       }, 1000);
+    } else if (paymentMethod === 'CASH') {
+      const tendered = parseFloat(cashTenderedKSh) || 0;
+      const grandTotalKSh = grandTotalCents / 100;
+      if (tendered < grandTotalKSh) {
+        alert(`Insufficient Cash Tendered: Tendered KSh ${tendered.toFixed(2)} is less than total payable KSh ${grandTotalKSh.toFixed(2)}.`);
+        return;
+      }
+      finalizeSaleRecord(paymentMethod, 'COMPLETED');
     } else {
       finalizeSaleRecord(paymentMethod, 'COMPLETED');
     }

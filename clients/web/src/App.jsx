@@ -46,6 +46,8 @@ export default function App() {
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [usernameError, setUsernameError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const [forbidden403Modal, setForbidden403Modal] = useState(null);
 
   // Domain Data States
@@ -114,21 +116,52 @@ export default function App() {
     };
   }, []);
 
-  // Authentication & Dynamic Persona Dashboard Routing
+  // Authentication & Dynamic Persona Dashboard Routing with Granular Field Validation
   const handlePerformLogin = (specificUser) => {
     let targetUser = specificUser;
-    if (!targetUser) {
-      targetUser = TEST_USERS.find(u => u.username.toLowerCase() === loginUsername.trim().toLowerCase());
-    }
+    setUsernameError('');
+    setPasswordError('');
+    setLoginError('');
+
+    const trimmedUsername = loginUsername.trim();
 
     if (!targetUser) {
-      setLoginError(`Invalid credentials for user '${loginUsername}'. Valid demo users: test1admin, test1user, test2user.`);
-      return;
+      let hasErr = false;
+      if (!trimmedUsername) {
+        setUsernameError('Username / Account ID is required');
+        hasErr = true;
+      } else if (trimmedUsername.length < 3) {
+        setUsernameError('Username must be at least 3 characters long');
+        hasErr = true;
+      }
+
+      if (!loginPassword) {
+        setPasswordError('Password is required');
+        hasErr = true;
+      }
+
+      if (hasErr) return;
+
+      targetUser = TEST_USERS.find(u => u.username.toLowerCase() === trimmedUsername.toLowerCase());
+
+      if (!targetUser) {
+        setUsernameError(`Account '${trimmedUsername}' does not exist. Valid users: test1admin, test1user, test2user.`);
+        setLoginError(`Authentication failed: User '${trimmedUsername}' not found. Please check spelling or refer to README.md.`);
+        return;
+      }
+
+      if (loginPassword !== 'password123') {
+        setPasswordError(`Incorrect password for user '${trimmedUsername}'. Default demo password: 'password123'.`);
+        setLoginError(`Invalid password for account '${trimmedUsername}'.`);
+        return;
+      }
     }
 
     setCurrentUser(targetUser);
     setIsLoggedIn(true);
     setLoginError('');
+    setUsernameError('');
+    setPasswordError('');
 
     // Dynamic Persona Routing: Route directly to persona's primary dashboard view
     let primaryTab = 'POS';
@@ -454,27 +487,47 @@ export default function App() {
 
           <form onSubmit={(e) => { e.preventDefault(); handlePerformLogin(); }} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Username / Account ID</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Username / Account ID *</label>
               <input
                 type="text"
-                required
                 value={loginUsername}
-                onChange={(e) => setLoginUsername(e.target.value)}
-                placeholder="test1user"
-                className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                onChange={(e) => {
+                  setLoginUsername(e.target.value);
+                  if (usernameError) setUsernameError('');
+                  if (loginError) setLoginError('');
+                }}
+                placeholder="Enter username (e.g. test1user)"
+                className={`w-full bg-[#121824] border rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none transition-all ${
+                  usernameError ? 'border-rose-500 focus:border-rose-400 bg-rose-950/20' : 'border-[#2A364F] focus:border-emerald-500'
+                }`}
               />
+              {usernameError && (
+                <span className="text-[11px] text-rose-400 font-medium mt-1 block flex items-center gap-1">
+                  ⚠️ {usernameError}
+                </span>
+              )}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Password</label>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">Password *</label>
               <input
                 type="password"
-                required
                 value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
+                onChange={(e) => {
+                  setLoginPassword(e.target.value);
+                  if (passwordError) setPasswordError('');
+                  if (loginError) setLoginError('');
+                }}
                 placeholder="••••••••"
-                className="w-full bg-[#121824] border border-[#2A364F] rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
+                className={`w-full bg-[#121824] border rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:outline-none transition-all ${
+                  passwordError ? 'border-rose-500 focus:border-rose-400 bg-rose-950/20' : 'border-[#2A364F] focus:border-emerald-500'
+                }`}
               />
+              {passwordError && (
+                <span className="text-[11px] text-rose-400 font-medium mt-1 block flex items-center gap-1">
+                  ⚠️ {passwordError}
+                </span>
+              )}
             </div>
 
             <button
