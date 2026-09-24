@@ -1,12 +1,22 @@
 # BiasharaOS — Multi-Tenant Business & Inventory Intelligence Platform
 
-**BiasharaOS** (Product Codename: BiasharaOS) is an inventory-intelligence-first, cloud-native multi-tenant SaaS platform engineered specifically for Kenyan MSMEs (dukas, pharmacies, hardware stores, salons, and small distributors).
+**BiasharaOS** is an inventory-intelligence-first, cloud-native multi-tenant SaaS platform engineered specifically for Kenyan MSMEs (dukas, pharmacies, hardware stores, salons, and small distributors).
 
 It consolidates four core operational primitives into one system of record:
-1. **Inventory Intelligence**: Stock levels, append-only stock ledger, low-stock threshold alerts, slow-mover (>60 days) and dead-stock (>120 days) analytics.
-2. **Sales & POS**: High-speed cart, cashier discount caps (10%) with Manager PIN step-up, sequential receipt generation, offline-capable POS.
-3. **M-Pesa & Payments**: Safaricom Daraja 3.0 STK Push, C2B Paybill/Till reconciliation, automated idempotency, live STK status query.
-4. **Compliance & Staff**: KRA eTIMS electronic tax invoice submission queue (OSCU mode), role-based access control (RBAC), and sales attribution.
+1. **Inventory Intelligence**: Stock levels, append-only stock ledger, low-stock threshold alerts, slow-mover (>60 days) and dead-stock (>120 days) analytics, weighted items (Kg/Litres), and auto SKU generation.
+2. **Sales & POS**: High-speed cart, hard stock oversell prevention guards, cashier discount caps (10%) with Manager PIN step-up, Web Bluetooth ESC/POS thermal printing, sequential receipt generation, offline-capable POS.
+3. **M-Pesa & Payments**: Safaricom Daraja 3.0 STK Push, phone sanitization (`2547XXXXXXXX`), C2B Paybill/Till reconciliation with 1-tap target sale receipt selection, automated idempotency, live STK status query.
+4. **Multi-Tenant Shop Onboarding & Security**: Schema-per-tenant isolation (`tenant_<slug>_<uuid>`), KRA PIN validation (`FR-TAX-01`), role-based access control (RBAC), and 3 pre-configured test user accounts.
+
+---
+
+## 👥 Pre-Configured Test User Personas
+
+| Username / Identity | Assigned Role | Access Scope |
+|---|---|---|
+| **`test1admin`** | `SUPER_ADMIN` | Platform Admin. Cross-tenant observability, tenant onboarding & support impersonation. |
+| **`test1user`** | `OWNER` | Shop Admin. Full access to POS, Inventory, Payments, eTIMS, Staff, Profile & Reports. |
+| **`test2user`** | `CASHIER` | Store Cashier. Front-desk POS checkout & M-Pesa reconciliation. Restricted from stock write-offs & store config. |
 
 ---
 
@@ -14,7 +24,7 @@ It consolidates four core operational primitives into one system of record:
 
 | Section | Feature / Requirement | Status | Implementation Reference |
 |---|---|---|---|
-| **BR-001** | Self-serve tenant registration & schema provisioning | ✅ Verified | `FR-TEN`, `AdminConsole.jsx`, `V1__platform_schema_init.sql` |
+| **BR-001** | Self-serve tenant registration & schema provisioning | ✅ Verified | `TenantProvisioningService.java`, `AdminConsole.jsx` |
 | **BR-002** | PostgreSQL Schema-per-Tenant isolation | ✅ Verified | `TenantContextHolder.java`, `TenantRoutingDataSource.java`, `V1__tenant_schema_init.sql` |
 | **BR-003** | Immutable append-only audit & stock ledger | ✅ Verified | `StockLedgerService.java`, `InventoryManager.jsx` |
 | **BR-004** | Offline-first POS sales & background sync | ✅ Verified | `OfflineSyncEngine.jsx`, `PosTerminal.jsx` (Client UUID v7 outbox) |
@@ -23,28 +33,27 @@ It consolidates four core operational primitives into one system of record:
 | **BR-007** | Low-stock threshold alerting | ✅ Verified | `InventoryManager.jsx`, `App.jsx` |
 | **BR-008** | Staff RBAC & sales attribution | ✅ Verified | `StaffManagement.jsx`, `SalesService.java` |
 | **BR-009** | Multi-branch stock transfers | ✅ Verified | `InventoryManager.jsx`, `V1__tenant_schema_init.sql` |
-| **BR-010** | Tiered subscription billing (Free, Lite, Pro, Max) | ✅ Verified | `AdminConsole.jsx`, `mockData.js` |
+| **BR-010** | Tiered subscription billing (Lite, Pro, Scale, Enterprise) | ✅ Verified | `AdminConsole.jsx`, `mockData.js` |
 | **BR-011** | Platform admin console & consent support impersonation | ✅ Verified | `AdminConsole.jsx` (`FR-ADM-04` audit log) |
 | **BR-012** | Slow movers (>60d) & dead stock (>120d) intelligence | ✅ Verified | `InventoryManager.jsx` |
-| **BR-014** | CSV Data Export & Data Sovereignty | ✅ Verified | `ReportsBI.jsx`, `ProfileManagement.jsx` |
+| **BR-014** | Data Export & Sovereignty | ✅ Verified | `ReportsBI.jsx`, `ProfileManagement.jsx` |
 
 ---
 
-## 🔒 7 Loophole Protections & Safeguards
+## 🔒 Security & Loophole Protections
 
-1. **Cumulative Discount Cap Bypass (`BRULE-06`)**: Evaluates cumulative effective discount across item-level and cart-level discounts (`(rawSubtotal - grandTotal) / rawSubtotal`). Exceeding 10% requires Manager PIN (`1234`). Tested in `SalesServiceTest.java`.
-2. **Offline Multi-Device Stock Oversell (`BRULE-02`)**: Accepts offline sales into the append-only `stock_ledger` to preserve auditability, but flags a **Negative Balance Conflict** for manager resolution.
+1. **Hard POS Oversell Guard (`BRULE-02`)**: Real-time product stock verification (`getLatestStock()`) across quantity increment, direct inputs, weight pills, and pre-checkout validation blocks overselling.
+2. **Cumulative Discount Cap Bypass (`BRULE-06`)**: Evaluates cumulative effective discount across item-level and cart-level discounts (`(rawSubtotal - grandTotal) / rawSubtotal`). Exceeding 10% requires Manager PIN (`1234`). Tested in `SalesServiceTest.java`.
 3. **Replay & Duplicate Payment Callback (`BRULE-08`)**: Enforces `(tenant_id, client_uuid)` uniqueness for sales and `(tenant_id, trans_id)` idempotency check for M-Pesa callbacks.
-4. **Async Thread Context Leakage (`BR-002`)**: Mandates `TenantContextHolder.clear()` in `finally` blocks across all execution contexts.
-5. **eTIMS Invoice Out-of-Order Sequence (`BRULE-07`)**: Queued eTIMS invoices process strictly ordered by client timestamp `client_timestamp` per tenant schema.
+4. **Daraja HTTP Header & Phone Format Sanitization**: Enforces Kenyan phone number sanitization to `2547XXXXXXXX` and constructs exact Daraja 3.0 HTTP headers (`Authorization: Basic Base64(Key:Secret)` & `Authorization: Bearer <token>`).
+5. **KRA PIN Exemption for VAT Tenants (`FR-TAX-01`)**: `ProfileService.java` & `TenantProvisioningService.java` enforce mandatory KRA PIN validation (`^[A-Z0-9]{11}$`) before allowing `isVatRegistered = true`.
 6. **Floating-Point Rounding Error (`BRULE-12`)**: All monetary values stored as 64-bit integer minor units (`BIGINT` / `long` cents).
-7. **KRA PIN Exemption for VAT Tenants (`FR-TAX-01`)**: `ProfileService.java` enforces mandatory KRA PIN validation before allowing `isVatRegistered = true`.
 
 ---
 
 ## 📖 Operational Runbook
 
-For production ops, disaster recovery, M-Pesa Daraja status queries, eTIMS retries, and database backups, see the **[Operational Runbook](file:///home/tristan/Documents/Repos/biz/docs/runbooks/OPERATIONAL_RUNBOOK.md)**.
+For production ops, disaster recovery, M-Pesa Daraja status queries, eTIMS retries, and database backups, see the **[Operational Runbook](docs/runbooks/OPERATIONAL_RUNBOOK.md)**.
 
 ---
 
@@ -54,8 +63,8 @@ For production ops, disaster recovery, M-Pesa Daraja status queries, eTIMS retri
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/biasharaos/biashara-os.git
-cd biashara-os
+git clone git@github.com:TristanBrian/smartos.git
+cd smartos
 
 # 2. Build and start all services
 docker compose up --build -d
@@ -73,48 +82,6 @@ docker compose ps
 
 ---
 
-## 📱 Mobile App (Flutter) Integration Specification
-
-The Flutter mobile client (`clients/mobile`) communicates with the backend via REST endpoints and uses a local SQLite (`Drift`) database for offline persistence.
-
-### 1. Offline Outbox Schema (`Drift` SQLite)
-```sql
-CREATE TABLE sync_outbox (
-    client_uuid TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    entity_type TEXT NOT NULL, -- SALE, STOCK_MUTATION
-    payload_json TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sync_status TEXT DEFAULT 'PENDING'
-);
-```
-
-### 2. Client Push Sync API Endpoint
-**`POST /api/v1/sync/push`**
-```json
-{
-  "batchId": "batch_981273918",
-  "envelopes": [
-    {
-      "clientUuid": "018d9812-7391-7000-8000-123456789abc",
-      "entityType": "SALE",
-      "timestamp": "2026-09-23T10:15:00Z",
-      "payload": {
-        "receiptNumber": "REC-10042",
-        "cashierId": "stf_02",
-        "items": [
-          { "sku": "BEV-MILK-500ML", "qty": 2, "unitPriceCents": 6500 }
-        ],
-        "grandTotalCents": 13000,
-        "paymentMethod": "CASH"
-      }
-    }
-  ]
-}
-```
-
----
-
 ## 🧪 Running Backend Unit Tests
 
 ```bash
@@ -122,7 +89,7 @@ cd services/backend
 ./mvnw clean verify
 ```
 
-### Test Suite Results:
+### Test Suite Results (22/22 Passing):
 ```text
 Running BiasharaOS Backend Test Suite...
 [PASS] TenantIsolationTestSuite.testTenantIsolation_CrossTenantReadReturns404
@@ -136,14 +103,21 @@ Running BiasharaOS Backend Test Suite...
 [PASS] MpesaPaymentServiceTest.testInitiateStkPush_InvalidPhone_ThrowsException
 [PASS] MpesaPaymentServiceTest.testBuildStkQueryPayload
 [PASS] MpesaPaymentServiceTest.testResolveResultCodeMessage
+[PASS] MpesaPaymentServiceTest.testFormatKenyanPhone
+[PASS] MpesaPaymentServiceTest.testBuildDarajaAuthHeader
+[PASS] MpesaPaymentServiceTest.testBuildStkPushPayloadMap
 [PASS] SalesServiceTest.testProcessSale_UnderDiscountCap_Success
 [PASS] SalesServiceTest.testProcessSale_ExceedsDiscountCapWithoutApproval_ThrowsException
 [PASS] SalesServiceTest.testProcessSale_CumulativeDiscountBypassLoophole_ThrowsException
 [PASS] SalesServiceTest.testProcessSale_CumulativeDiscountWithManagerApproval_Success
+[PASS] TenantProvisioningServiceTest.testOnboardNewShop_Success
+[PASS] TenantProvisioningServiceTest.testOnboardNewShop_MissingName_ThrowsException
+[PASS] TenantProvisioningServiceTest.testOnboardNewShop_VatRegisteredWithoutKraPin_ThrowsException
+[PASS] TenantProvisioningServiceTest.testOnboardNewShop_VatRegisteredWithValidKraPin_Success
 -------------------------------------------------------
  T E S T S
 -------------------------------------------------------
-Tests run: 15, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 22, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 
@@ -159,7 +133,7 @@ biashara-os/
 ├── services/
 │   └── backend/                     # Java 21 / Spring Boot 3 Backend Microservices
 │       ├── src/main/java/           # Domain Services (StockLedger, Sales, Mpesa, Etims, Profile, TenantRouting)
-│       ├── src/test/java/           # Unit Test Suites (TenantIsolation, StockLedger, Mpesa, Profile, Sales)
+│       ├── src/test/java/           # Unit Test Suites (TenantIsolation, StockLedger, Mpesa, Profile, Sales, TenantProvisioning)
 │       ├── mvnw                     # Standalone Maven runner script
 │       └── pom.xml                  # Maven POM specification
 ├── clients/
