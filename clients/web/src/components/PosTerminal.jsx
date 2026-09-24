@@ -43,7 +43,7 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
           alert(`Quantity limit reached for ${product.name}. Stock available: ${product.stockOnHand}`);
           return prev;
         }
-        return prev.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+        return prev.map(item => item.id === product.id ? { ...item, qty: Math.round((item.qty + 1) * 100) / 100 } : item);
       }
       return [...prev, { ...product, qty: 1 }];
     });
@@ -52,9 +52,23 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
   const updateQty = (id, delta) => {
     setCart(prev => prev.map(item => {
       if (item.id === id) {
-        const newQty = item.qty + delta;
+        const newQty = Math.round((item.qty + delta) * 100) / 100;
         if (newQty <= 0) return null;
         return { ...item, qty: newQty };
+      }
+      return item;
+    }).filter(Boolean));
+  };
+
+  const setQtyDirect = (id, exactQty) => {
+    setCart(prev => prev.map(item => {
+      if (item.id === id) {
+        if (exactQty <= 0) return null;
+        if (exactQty > item.stockOnHand && !activeTenant.allowOversell) {
+          alert(`Quantity limit reached for ${item.name}. Stock available: ${item.stockOnHand}`);
+          return item;
+        }
+        return { ...item, qty: Math.round(exactQty * 100) / 100 };
       }
       return item;
     }).filter(Boolean));
@@ -252,36 +266,70 @@ export default function PosTerminal({ products, onCompleteSale, isOffline, activ
               <p className="text-sm">Cart is empty. Tap items on the left to add.</p>
             </div>
           ) : (
-            cart.map(item => (
-              <div key={item.id} className="flex items-center justify-between p-3 rounded-xl bg-[#121824] border border-[#2A364F]">
-                <div className="flex-1 pr-2">
-                  <div className="font-medium text-sm text-slate-200 line-clamp-1">{item.name}</div>
-                  <div className="text-xs text-emerald-400 font-medium">
-                    KSh {(item.sellPriceCents / 100).toLocaleString()} / {item.uom}
-                  </div>
-                </div>
+            cart.map(item => {
+              const isWeighted = item.uom === 'Kg' || item.uom === 'Gram' || item.uom === 'Litre';
+              const stepVal = isWeighted ? 0.25 : 1;
+              return (
+                <div key={item.id} className="p-3 rounded-xl bg-[#121824] border border-[#2A364F] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 pr-2">
+                      <div className="font-medium text-sm text-slate-200 line-clamp-1">{item.name}</div>
+                      <div className="text-xs text-emerald-400 font-medium">
+                        KSh {(item.sellPriceCents / 100).toLocaleString()} / {item.uom}
+                      </div>
+                    </div>
 
-                {/* Qty Controls */}
-                <div className="flex items-center gap-2 bg-[#1A2332] px-2 py-1 rounded-lg border border-[#2A364F]">
-                  <button onClick={() => updateQty(item.id, -1)} className="p-1 text-slate-400 hover:text-white">
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-xs font-semibold px-1 text-slate-100">{item.qty}</span>
-                  <button onClick={() => updateQty(item.id, 1)} className="p-1 text-slate-400 hover:text-white">
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                    <div className="flex items-center gap-1.5 bg-[#1A2332] px-2 py-1 rounded-lg border border-[#2A364F]">
+                      <button onClick={() => updateQty(item.id, -stepVal)} className="p-1 text-slate-400 hover:text-white">
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
 
-                <div className="text-right pl-3 min-w-[70px]">
-                  <div className="text-sm font-semibold text-slate-100">
-                    KSh {((item.sellPriceCents * item.qty) / 100).toLocaleString()}
+                      <input
+                        type="number"
+                        step={isWeighted ? "0.01" : "1"}
+                        min="0.01"
+                        value={item.qty}
+                        onChange={(e) => setQtyDirect(item.id, parseFloat(e.target.value) || 0)}
+                        className="w-14 bg-[#121824] text-center text-xs font-mono font-bold border border-slate-700 rounded text-emerald-400 py-0.5 focus:outline-none focus:border-emerald-500"
+                      />
+
+                      <button onClick={() => updateQty(item.id, stepVal)} className="p-1 text-slate-400 hover:text-white">
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="text-right pl-3 min-w-[70px]">
+                      <div className="text-sm font-semibold text-slate-100">
+                        KSh {((item.sellPriceCents * item.qty) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <button onClick={() => removeFromCart(item.id)} className="text-rose-400 hover:text-rose-300 text-[10px]">
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} className="text-rose-400 hover:text-rose-300 text-[10px]">
-                    Remove
-                  </button>
+
+                  {/* Quick Weight Adjust Pills for Kg items */}
+                  {isWeighted && (
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-slate-800/80">
+                      <span className="text-[10px] text-slate-500 font-mono">Quick Weight:</span>
+                      {[0.25, 0.5, 1.0, 2.0, 5.0].map(wt => (
+                        <button
+                          key={wt}
+                          onClick={() => setQtyDirect(item.id, wt)}
+                          className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded border transition-all ${
+                            item.qty === wt
+                              ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                              : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-500'
+                          }`}
+                        >
+                          {wt} {item.uom}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 

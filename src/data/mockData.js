@@ -144,6 +144,36 @@ export const INITIAL_PRODUCTS = [
     reorderThreshold: 2,
     lastRestockDate: "2026-03-01",
     daysNoSale: 135 // Dead stock! (>120 days)
+  },
+  {
+    id: "prod_008",
+    sku: "VEG-RED-ONIONS-KG",
+    name: "Fresh Red Onions (per Kg)",
+    category: "Fresh Produce",
+    barcode: "616110009008",
+    uom: "Kg",
+    costPriceCents: 9000, // KSh 90.00 / Kg
+    sellPriceCents: 12000, // KSh 120.00 / Kg
+    vatRate: 0,
+    stockOnHand: 45.5, // Fractional stock
+    reorderThreshold: 10,
+    lastRestockDate: "2026-09-23",
+    daysNoSale: 0
+  },
+  {
+    id: "prod_009",
+    sku: "VEG-FARM-TOMATOES-KG",
+    name: "Ripe Farm Tomatoes (per Kg)",
+    category: "Fresh Produce",
+    barcode: "616110009009",
+    uom: "Kg",
+    costPriceCents: 10000, // KSh 100.00 / Kg
+    sellPriceCents: 14000, // KSh 140.00 / Kg
+    vatRate: 0,
+    stockOnHand: 32.0,
+    reorderThreshold: 8,
+    lastRestockDate: "2026-09-24",
+    daysNoSale: 0
   }
 ];
 

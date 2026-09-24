@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import {
   Package, Plus, AlertCircle, TrendingDown, ArrowRightLeft,
   ShieldAlert, History, Edit3, CheckCircle2, Image, Upload,
-  MinusCircle, PlusCircle, ArrowDown, ArrowUp
+  MinusCircle, PlusCircle, ArrowDown, ArrowUp, BarChart2,
+  Sparkles, DollarSign, Scale, Info, Eye, X
 } from 'lucide-react';
 
 export default function InventoryManager({ products, ledgerEntries, onAddProduct, onUpdateStock, activeTenant }) {
@@ -16,14 +17,18 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
   const [adjustmentDirection, setAdjustmentDirection] = useState('DECREASE'); // 'DECREASE' or 'INCREASE'
   const [adjustmentReason, setAdjustmentReason] = useState('Damaged stock');
 
+  // Product Performance / BI Details Modal
+  const [inspectProduct, setInspectProduct] = useState(null);
+
   // New Product Modal State
   const [newProductModal, setNewProductModal] = useState(false);
+  const [manualSkuEdit, setManualSkuEdit] = useState(false);
   const [newProduct, setNewProduct] = useState({
     sku: '',
     name: '',
-    category: 'General',
+    category: 'Fresh Produce',
     barcode: '',
-    uom: 'Piece',
+    uom: 'Kg',
     costPriceKSh: '',
     sellPriceKSh: '',
     vatRate: 0,
@@ -36,11 +41,39 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
   const slowMovers = products.filter(p => p.daysNoSale >= 60 && p.daysNoSale < 120);
   const deadStock = products.filter(p => p.daysNoSale >= 120 && p.stockOnHand > 0);
 
-  // Handle reason change and auto-set adjustment direction
+  // Auto SKU Generator Algorithm
+  const generateSkuFromName = (name, category) => {
+    if (!name || name.trim() === '') return '';
+    const prefix = (category || 'GEN').slice(0, 3).toUpperCase();
+    const cleanName = name
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, '')
+      .trim()
+      .split(/\s+/)
+      .slice(0, 3)
+      .join('-');
+
+    return `${prefix}-${cleanName}`;
+  };
+
+  const handleProductNameChange = (e) => {
+    const val = e.target.value;
+    setNewProduct(prev => {
+      const autoSku = !manualSkuEdit ? generateSkuFromName(val, prev.category) : prev.sku;
+      return { ...prev, name: val, sku: autoSku };
+    });
+  };
+
+  const handleCategoryChange = (e) => {
+    const val = e.target.value;
+    setNewProduct(prev => {
+      const autoSku = !manualSkuEdit ? generateSkuFromName(prev.name, val) : prev.sku;
+      return { ...prev, category: val, sku: autoSku };
+    });
+  };
+
   const handleReasonChange = (reason) => {
     setAdjustmentReason(reason);
-
-    // Auto-set direction based on reason code
     if (
       reason === 'Damaged stock' ||
       reason === 'Expired product' ||
@@ -67,8 +100,7 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
   const handleSaveAdjustment = () => {
     if (!selectedProduct || deltaQtyInput <= 0) return;
 
-    // Calculate exact signed delta (Negative for Expired/Damaged, Positive for Restock)
-    const qty = Math.abs(parseInt(deltaQtyInput) || 0);
+    const qty = parseFloat(deltaQtyInput) || 0;
     const signedDelta = adjustmentDirection === 'DECREASE' ? -qty : qty;
 
     onUpdateStock({
@@ -86,7 +118,6 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
     setDeltaQtyInput(1);
   };
 
-  // Image Upload Handler
   const handleImageFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -112,8 +143,8 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
       costPriceCents: Math.round(parseFloat(newProduct.costPriceKSh || 0) * 100),
       sellPriceCents: Math.round(parseFloat(newProduct.sellPriceKSh || 0) * 100),
       vatRate: parseInt(newProduct.vatRate),
-      stockOnHand: parseInt(newProduct.stockOnHand),
-      reorderThreshold: parseInt(newProduct.reorderThreshold),
+      stockOnHand: parseFloat(newProduct.stockOnHand),
+      reorderThreshold: parseFloat(newProduct.reorderThreshold),
       lastRestockDate: new Date().toISOString().split('T')[0],
       daysNoSale: 0,
       imageUrl: newProduct.imageUrl || null
@@ -121,36 +152,37 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
 
     onAddProduct(created);
     setNewProductModal(false);
+    setManualSkuEdit(false);
     setNewProduct({
-      sku: '', name: '', category: 'General', barcode: '', uom: 'Piece',
+      sku: '', name: '', category: 'Fresh Produce', barcode: '', uom: 'Kg',
       costPriceKSh: '', sellPriceKSh: '', vatRate: 0, stockOnHand: 10, reorderThreshold: 5, imageUrl: ''
     });
   };
 
-  // Live adjustment calculations
-  const rawQty = Math.abs(parseInt(deltaQtyInput) || 0);
+  // Live adjustment calculation
+  const rawQty = Math.abs(parseFloat(deltaQtyInput) || 0);
   const signedDelta = adjustmentDirection === 'DECREASE' ? -rawQty : rawQty;
   const newStockPreview = selectedProduct ? Math.max(0, selectedProduct.stockOnHand + signedDelta) : 0;
 
   return (
     <div className="space-y-6">
       {/* Top Banner & Sub-Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-panel p-5 rounded-2xl border border-emerald-500/20">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2 font-display">
             <Package className="w-6 h-6 text-emerald-400" /> Inventory Intelligence & Ledger
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Append-only stock ledger, write-off controls for expired/damaged items, and product catalog.
+            Auto-generated SKUs, weighted items (Kg/Litres), product yield calculations, and append-only stock ledger.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setNewProductModal(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2"
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all"
           >
-            <Plus className="w-4 h-4" /> Add New SKU
+            <Plus className="w-4 h-4" /> Add New Product SKU
           </button>
         </div>
       </div>
@@ -223,7 +255,7 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                   .map(prod => {
                     const isLow = prod.stockOnHand <= prod.reorderThreshold;
                     return (
-                      <tr key={prod.id} className="hover:bg-slate-800/30 transition-colors">
+                      <tr key={prod.id} className="hover:bg-slate-800/30 transition-colors cursor-pointer group" onClick={() => setInspectProduct(prod)}>
                         <td className="p-3.5">
                           {prod.imageUrl ? (
                             <img src={prod.imageUrl} alt={prod.name} className="w-9 h-9 rounded-lg object-cover border border-[#2A364F]" />
@@ -233,11 +265,18 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                             </div>
                           )}
                         </td>
-                        <td className="p-3.5 font-mono text-emerald-400 font-medium">
+                        <td className="p-3.5 font-mono text-emerald-400 font-medium group-hover:underline">
                           {prod.sku}
                           <div className="text-[10px] text-slate-500">{prod.barcode}</div>
                         </td>
-                        <td className="p-3.5 font-medium text-slate-100">{prod.name}</td>
+                        <td className="p-3.5 font-medium text-slate-100 flex items-center gap-1.5">
+                          {prod.name}
+                          {prod.uom === 'Kg' && (
+                            <span className="text-[10px] bg-cyan-500/20 text-cyan-300 font-bold px-1.5 py-0.5 rounded border border-cyan-500/30">
+                              WEIGHTED (KG)
+                            </span>
+                          )}
+                        </td>
                         <td className="p-3.5 text-slate-400">{prod.category}</td>
                         <td className="p-3.5 text-right text-slate-400">KSh {(prod.costPriceCents / 100).toFixed(2)}</td>
                         <td className="p-3.5 text-right font-semibold text-emerald-300">
@@ -252,13 +291,22 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                           </span>
                         </td>
                         <td className="p-3.5 text-center text-slate-400">{prod.reorderThreshold}</td>
-                        <td className="p-3.5 text-right">
-                          <button
-                            onClick={() => handleOpenAdjustment(prod)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700"
-                          >
-                            Adjust Stock
-                          </button>
+                        <td className="p-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setInspectProduct(prod)}
+                              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700 flex items-center gap-1"
+                              title="Inspect Product BI Yield"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-cyan-400" />
+                            </button>
+                            <button
+                              onClick={() => handleOpenAdjustment(prod)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] rounded-lg border border-slate-700"
+                            >
+                              Adjust Stock
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -326,7 +374,6 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
       {/* Tab 3: Inventory Intelligence (Slow Movers & Dead Stock) */}
       {activeTab === 'INTELLIGENCE' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Slow Movers (>60 days) */}
           <div className="glass-panel p-5 rounded-2xl border border-amber-500/30 space-y-4">
             <div className="flex items-center gap-2">
               <TrendingDown className="w-5 h-5 text-amber-400" />
@@ -352,7 +399,6 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
             </div>
           </div>
 
-          {/* Dead Stock (>120 days) */}
           <div className="glass-panel p-5 rounded-2xl border border-rose-500/30 space-y-4">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5 text-rose-400" />
@@ -380,7 +426,115 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
         </div>
       )}
 
-      {/* Manual Stock Adjustment Modal with Sound Decrease/Increase Logic */}
+      {/* Product Details & BI Yield Performance Inspection Modal */}
+      {inspectProduct && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-cyan-500/40 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#2A364F] pb-3">
+              <div className="flex items-center gap-3">
+                {inspectProduct.imageUrl ? (
+                  <img src={inspectProduct.imageUrl} alt={inspectProduct.name} className="w-12 h-12 rounded-xl object-cover border border-cyan-500/50" />
+                ) : (
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <Package className="w-6 h-6" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="font-bold text-slate-100 text-base font-display">{inspectProduct.name}</h3>
+                  <div className="flex items-center gap-2 text-xs font-mono">
+                    <span className="text-emerald-400 font-bold">{inspectProduct.sku}</span>
+                    <span className="text-slate-500">•</span>
+                    <span className="text-slate-300">{inspectProduct.category}</span>
+                  </div>
+                </div>
+              </div>
+              <button onClick={() => setInspectProduct(null)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            {/* Financial Unit Economics */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F]">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Unit Cost Price</span>
+                <span className="font-mono font-bold text-slate-200 text-sm">KSh {(inspectProduct.costPriceCents / 100).toFixed(2)}</span>
+              </div>
+
+              <div className="p-3 bg-[#121824] rounded-xl border border-[#2A364F]">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Unit Sell Price</span>
+                <span className="font-mono font-bold text-emerald-400 text-sm">KSh {(inspectProduct.sellPriceCents / 100).toFixed(2)}</span>
+              </div>
+
+              <div className="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/40">
+                <span className="text-[10px] text-emerald-400 uppercase tracking-wider block font-bold">Profit Margin / Unit</span>
+                <span className="font-mono font-bold text-emerald-300 text-sm">
+                  KSh {((inspectProduct.sellPriceCents - inspectProduct.costPriceCents) / 100).toFixed(2)}
+                </span>
+                <span className="text-[10px] text-emerald-400 block font-semibold">
+                  ({(((inspectProduct.sellPriceCents - inspectProduct.costPriceCents) / inspectProduct.sellPriceCents) * 100).toFixed(1)}%)
+                </span>
+              </div>
+            </div>
+
+            {/* Total Stock Valuation & Financial Yield Intelligence */}
+            <div className="p-4 bg-[#121824] rounded-2xl border border-[#2A364F] space-y-3 text-xs">
+              <h4 className="font-bold text-slate-200 flex items-center gap-1.5 text-sm">
+                <BarChart2 className="w-4 h-4 text-cyan-400" /> Total Stock Valuation & Yield Projection
+              </h4>
+
+              <div className="grid grid-cols-2 gap-3 font-mono">
+                <div className="space-y-1">
+                  <span className="text-slate-400 block text-[11px]">Current Stock Volume:</span>
+                  <span className="text-slate-100 font-bold text-sm">{inspectProduct.stockOnHand} {inspectProduct.uom}</span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-slate-400 block text-[11px]">Capital Tied Up (Cost):</span>
+                  <span className="text-slate-200 font-bold text-sm">
+                    KSh {((inspectProduct.stockOnHand * inspectProduct.costPriceCents) / 100).toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-slate-400 block text-[11px]">Expected Total Revenue:</span>
+                  <span className="text-emerald-400 font-bold text-sm">
+                    KSh {((inspectProduct.stockOnHand * inspectProduct.sellPriceCents) / 100).toLocaleString()}
+                  </span>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-slate-400 block text-[11px]">Expected Total Net Yield:</span>
+                  <span className="text-cyan-300 font-bold text-sm">
+                    KSh {((inspectProduct.stockOnHand * (inspectProduct.sellPriceCents - inspectProduct.costPriceCents)) / 100).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <span>VAT Tax Status: <strong className="text-slate-200">{inspectProduct.vatRate}%</strong></span>
+              <span>Reorder Threshold: <strong className="text-amber-400">{inspectProduct.reorderThreshold} {inspectProduct.uom}</strong></span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2A364F]">
+              <button
+                type="button"
+                onClick={() => { setInspectProduct(null); handleOpenAdjustment(inspectProduct); }}
+                className="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-emerald-400" /> Adjust Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setInspectProduct(null)}
+                className="py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20"
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stock Adjustment Modal */}
       {adjustmentModal && selectedProduct && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="glass-panel max-w-md w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 shadow-2xl">
@@ -395,7 +549,6 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
             </div>
 
             <div className="space-y-3">
-              {/* Reason Selection */}
               <div>
                 <label className="text-xs text-slate-300 block mb-1 font-semibold">Reason Code:</label>
                 <select
@@ -412,7 +565,6 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                 </select>
               </div>
 
-              {/* Adjustment Direction Toggle */}
               <div>
                 <label className="text-xs text-slate-300 block mb-1 font-semibold">Stock Action Direction:</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -441,20 +593,19 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
                 </div>
               </div>
 
-              {/* Quantity Input */}
               <div>
                 <label className="text-xs text-slate-300 block mb-1 font-semibold">Quantity Count:</label>
                 <input
                   type="number"
-                  min="1"
+                  step="0.1"
+                  min="0.1"
                   value={deltaQtyInput}
                   onChange={(e) => setDeltaQtyInput(e.target.value)}
                   className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2.5 rounded-xl text-sm font-mono text-slate-100 focus:outline-none focus:border-emerald-500"
-                  placeholder="Enter quantity (e.g. 5)"
+                  placeholder="Enter quantity (e.g. 5 or 2.5)"
                 />
               </div>
 
-              {/* Live Preview Card */}
               <div className={`p-3 rounded-xl border text-xs space-y-1 ${
                 adjustmentDirection === 'DECREASE' ? 'bg-rose-950/30 border-rose-500/40 text-rose-300' : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
               }`}>
@@ -489,7 +640,7 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
         </div>
       )}
 
-      {/* Add Product Modal with Optional Photo Upload */}
+      {/* Add Product Modal with Live Auto-Generated SKU */}
       {newProductModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form onSubmit={handleCreateProduct} className="glass-panel max-w-lg w-full p-6 rounded-2xl border border-emerald-500/40 space-y-4 shadow-2xl">
@@ -502,49 +653,97 @@ export default function InventoryManager({ products, ledgerEntries, onAddProduct
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <label className="text-slate-300 block mb-1 font-semibold">SKU Code *</label>
-                <input
-                  type="text" required placeholder="BEV-JUICE-1L"
-                  value={newProduct.sku} onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
-                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-emerald-500"
-                />
+                <label className="text-slate-300 block mb-1 font-semibold">Category *</label>
+                <select
+                  value={newProduct.category}
+                  onChange={handleCategoryChange}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                >
+                  <option value="Fresh Produce">Fresh Produce (Onions, Tomatoes, etc.)</option>
+                  <option value="Grains & Flour">Grains & Flour (Unga, Rice)</option>
+                  <option value="Beverages & Dairy">Beverages & Dairy (Milk, Juice)</option>
+                  <option value="Pantry Essentials">Pantry Essentials (Sugar, Salt)</option>
+                  <option value="Household">Household (Soap, Tissue)</option>
+                  <option value="Pharmaceuticals">Pharmaceuticals</option>
+                  <option value="General">General Merchandise</option>
+                </select>
               </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Unit of Measure (UOM) *</label>
+                <select
+                  value={newProduct.uom}
+                  onChange={(e) => setNewProduct({ ...newProduct, uom: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500 cursor-pointer font-bold text-emerald-400"
+                >
+                  <option value="Kg">Kg (Kilograms — Onions, Tomatoes, Sugar)</option>
+                  <option value="Gram">Gram (Grams)</option>
+                  <option value="Litre">Litre (Liquids, Cooking Oil)</option>
+                  <option value="Pouch">Pouch / Packet</option>
+                  <option value="Piece">Piece / Unit</option>
+                  <option value="Strip">Strip (Medicine)</option>
+                  <option value="Box">Box / Carton</option>
+                </select>
+              </div>
+
               <div>
                 <label className="text-slate-300 block mb-1 font-semibold">Product Name *</label>
                 <input
-                  type="text" required placeholder="Mango Juice 1L"
-                  value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                  type="text" required placeholder="e.g. Fresh Red Onions"
+                  value={newProduct.name} onChange={handleProductNameChange}
                   className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
               <div>
-                <label className="text-slate-300 block mb-1 font-semibold">Cost Price (KSh)</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-slate-300 block font-semibold">SKU Code (Auto-Generated) *</label>
+                  <span className="text-[10px] text-cyan-400 font-bold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Auto
+                  </span>
+                </div>
                 <input
-                  type="number" step="0.01" placeholder="120.00"
+                  type="text" required placeholder="Auto-generated from name"
+                  value={newProduct.sku}
+                  onChange={(e) => {
+                    setManualSkuEdit(true);
+                    setNewProduct({ ...newProduct, sku: e.target.value });
+                  }}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-emerald-400 font-mono focus:outline-none focus:border-emerald-500 font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 block mb-1 font-semibold">Cost Price (KSh / {newProduct.uom})</label>
+                <input
+                  type="number" step="0.01" placeholder="90.00"
                   value={newProduct.costPriceKSh} onChange={(e) => setNewProduct({ ...newProduct, costPriceKSh: e.target.value })}
                   className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
               <div>
-                <label className="text-slate-300 block mb-1 font-semibold">Sell Price (KSh)</label>
+                <label className="text-slate-300 block mb-1 font-semibold">Sell Price (KSh / {newProduct.uom})</label>
                 <input
-                  type="number" step="0.01" placeholder="150.00"
+                  type="number" step="0.01" placeholder="120.00"
                   value={newProduct.sellPriceKSh} onChange={(e) => setNewProduct({ ...newProduct, sellPriceKSh: e.target.value })}
                   className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
               <div>
-                <label className="text-slate-300 block mb-1 font-semibold">Initial Stock</label>
+                <label className="text-slate-300 block mb-1 font-semibold">Initial Stock ({newProduct.uom})</label>
                 <input
-                  type="number" value={newProduct.stockOnHand} onChange={(e) => setNewProduct({ ...newProduct, stockOnHand: e.target.value })}
-                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  type="number" step="0.1" value={newProduct.stockOnHand} onChange={(e) => setNewProduct({ ...newProduct, stockOnHand: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
+
               <div>
-                <label className="text-slate-300 block mb-1 font-semibold">Reorder Threshold</label>
+                <label className="text-slate-300 block mb-1 font-semibold">Reorder Threshold ({newProduct.uom})</label>
                 <input
-                  type="number" value={newProduct.reorderThreshold} onChange={(e) => setNewProduct({ ...newProduct, reorderThreshold: e.target.value })}
-                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  type="number" step="0.1" value={newProduct.reorderThreshold} onChange={(e) => setNewProduct({ ...newProduct, reorderThreshold: e.target.value })}
+                  className="w-full bg-[#121824] border border-[#2A364F] px-3.5 py-2 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
             </div>
