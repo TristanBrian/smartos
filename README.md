@@ -67,7 +67,7 @@ docker compose ps
 ### Services Overview
 - **`biashara-web`**: http://localhost:3000 (React Web & POS Dashboard)
 - **`biashara-backend`**: http://localhost:8080 (Java 21 Spring Boot REST APIs)
-- **`biashara-postgres`**: localhost:5432 (PostgreSQL database with schema-per-tenant isolation)
+- **`biashara-postgres`**: localhost:5433 (PostgreSQL database with schema-per-tenant isolation — mapped to 5433 to avoid host port 5432 conflict)
 - **`biashara-redis`**: localhost:6379 (Idempotency & session cache)
 - **`biashara-kafka`**: localhost:9092 (Kafka event backbone)
 
