@@ -72,4 +72,37 @@ public class MpesaPaymentServiceTest {
         assertTrue(service.resolveResultCodeMessage("1032").contains("cancelled by user"));
         assertTrue(service.resolveResultCodeMessage("1037").contains("Timeout"));
     }
+
+    @Test
+    public void testFormatKenyanPhone() {
+        MpesaPaymentService service = new MpesaPaymentService();
+        assertEquals("254712345678", service.formatKenyanPhone("0712345678"));
+        assertEquals("254712345678", service.formatKenyanPhone("+254 712 345 678"));
+        assertEquals("254712345678", service.formatKenyanPhone("254712345678"));
+    }
+
+    @Test
+    public void testBuildDarajaAuthHeader() {
+        MpesaPaymentService service = new MpesaPaymentService();
+        String authHeader = service.buildDarajaAuthHeader("myKey", "mySecret");
+        assertTrue(authHeader.startsWith("Basic "));
+    }
+
+    @Test
+    public void testBuildStkPushPayloadMap() {
+        MpesaPaymentService service = new MpesaPaymentService();
+        MpesaPaymentService.DarajaCredentials creds = new MpesaPaymentService.DarajaCredentials(
+            "SANDBOX", "key123", "secret123", "174379", "passkey123"
+        );
+        MpesaPaymentService.StkPushRequest req = new MpesaPaymentService.StkPushRequest(
+            "0722000111", 15000, "REC-10042", "Payment for Goods", "https://api.biasharaos.com/callback"
+        );
+
+        Map<String, Object> payload = service.buildStkPushPayloadMap(creds, req);
+        assertEquals("174379", payload.get("BusinessShortCode"));
+        assertEquals("CustomerPayBillOnline", payload.get("TransactionType"));
+        assertEquals(150L, payload.get("Amount"));
+        assertEquals("254722000111", payload.get("PhoneNumber"));
+        assertEquals("254722000111", payload.get("PartyA"));
+    }
 }

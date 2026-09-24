@@ -84,6 +84,18 @@ public class TestRunner {
             mpesaSuite.testResolveResultCodeMessage();
             testsRun++;
             System.out.println("[PASS] MpesaPaymentServiceTest.testResolveResultCodeMessage");
+
+            mpesaSuite.testFormatKenyanPhone();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testFormatKenyanPhone");
+
+            mpesaSuite.testBuildDarajaAuthHeader();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testBuildDarajaAuthHeader");
+
+            mpesaSuite.testBuildStkPushPayloadMap();
+            testsRun++;
+            System.out.println("[PASS] MpesaPaymentServiceTest.testBuildStkPushPayloadMap");
         } catch (Throwable t) {
             failures++;
             System.err.println("[FAIL] MpesaPaymentServiceTest: " + t.getMessage());

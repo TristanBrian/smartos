@@ -49,6 +49,21 @@ public class MpesaPaymentService {
     ) {}
 
     /**
+     * Sanitizes raw Kenyan phone number to Daraja required format: 2547XXXXXXXX
+     */
+    public String formatKenyanPhone(String rawPhone) {
+        if (rawPhone == null) return "";
+        String clean = rawPhone.replaceAll("\\s+", "").replaceAll("-", "");
+        if (clean.startsWith("+")) {
+            clean = clean.substring(1);
+        }
+        if (clean.startsWith("0")) {
+            clean = "254" + clean.substring(1);
+        }
+        return clean;
+    }
+
+    /**
      * Generates Base64-encoded Password: Base64(Shortcode + Passkey + Timestamp)
      */
     public String generatePassword(String shortcode, String passkey, String timestamp) {
@@ -61,14 +76,50 @@ public class MpesaPaymentService {
     }
 
     /**
-     * Builds full Daraja 3.0 STK Push Process Request Payload.
+     * Builds HTTP Basic Auth Header value for Daraja OAuth: Basic Base64(ConsumerKey:ConsumerSecret)
+     */
+    public String buildDarajaAuthHeader(String consumerKey, String consumerSecret) {
+        String data = consumerKey + ":" + consumerSecret;
+        return "Basic " + Base64.getEncoder().encodeToString(data.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * Builds complete Safaricom Daraja 3.0 STK Push Process Request Payload Map.
+     */
+    public Map<String, Object> buildStkPushPayloadMap(DarajaCredentials creds, StkPushRequest req) {
+        String formattedPhone = formatKenyanPhone(req.phone());
+        if (!formattedPhone.matches("^254[0-9]{9}$")) {
+            throw new IllegalArgumentException("Invalid Kenyan phone number format: " + req.phone() + ". Must be 2547XXXXXXXX");
+        }
+
+        String timestamp = generateTimestamp();
+        String password = generatePassword(creds.shortcode(), creds.passkey(), timestamp);
+        long amountKSh = Math.max(1, req.amountCents() / 100);
+
+        return Map.ofEntries(
+            Map.entry("BusinessShortCode", creds.shortcode()),
+            Map.entry("Password", password),
+            Map.entry("Timestamp", timestamp),
+            Map.entry("TransactionType", "CustomerPayBillOnline"),
+            Map.entry("Amount", amountKSh),
+            Map.entry("PartyA", formattedPhone),
+            Map.entry("PartyB", creds.shortcode()),
+            Map.entry("PhoneNumber", formattedPhone),
+            Map.entry("CallBackURL", req.callbackUrl() != null ? req.callbackUrl() : "https://api.biasharaos.co.ke/api/v1/mpesa/callback"),
+            Map.entry("AccountReference", req.accountReference() != null ? req.accountReference() : "BiasharaOS"),
+            Map.entry("TransactionDesc", req.transactionDesc() != null ? req.transactionDesc() : "Payment")
+        );
+    }
+
+    /**
+     * Initiates STK Push domain response.
      */
     public StkPushResponsePayload initiateStkPush(DarajaCredentials creds, StkPushRequest req) {
-        if (req.phone() == null || !req.phone().matches("^254[0-9]{9}$|^\\+254[0-9]{9}$|^0[0-9]{9}$")) {
+        String formattedPhone = formatKenyanPhone(req.phone());
+        if (!formattedPhone.matches("^254[0-9]{9}$")) {
             throw new IllegalArgumentException("Invalid Kenyan phone number format. Must be 2547XXXXXXXX or 07XXXXXXXX");
         }
 
-        String formattedPhone = req.phone().replaceAll("^\\+", "").replaceAll("^0", "254");
         String timestamp = generateTimestamp();
         String password = generatePassword(creds.shortcode(), creds.passkey(), timestamp);
 
